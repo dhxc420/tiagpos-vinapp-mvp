@@ -16,6 +16,52 @@ app.use('/uploads', express.static(UPLOAD_DIR));
 
 const DB_FILE = path.join(__dirname, 'db.json');
 
+// Adapter: file DB with optional Mongo sync
+let usingMongo = false;
+let mongoModels = null;
+
+async function initMongoIfConfigured(){
+  const mongoUri = process.env.MONGO_URI || process.env.MONGOURL || process.env.MONGOURL_SHORT;
+  if(!mongoUri) return;
+  try{
+    mongoModels = require('./mongo_models');
+    await mongoModels.mongoose.connect(mongoUri);
+    usingMongo = true;
+    console.log('Connected to MongoDB via MONGO_URI');
+    // load data from mongo into in-memory db shape
+    const users = await mongoModels.User.find({}).lean();
+    const menus = await mongoModels.Menu.find({}).lean();
+    const orders = await mongoModels.Order.find({}).lean();
+    const inventories = await mongoModels.Inventory.find({}).lean();
+    const cash = await mongoModels.Cash.find({}).lean();
+
+    // map mongo docs to legacy format
+    const dbFromMongo = {
+      menus: (menus || []).map(m=> ({ id: m.legacyId || 0, ownerId: m.legacyOwnerId || null, name: m.name, price: m.price, available: m.available })),
+      orders: (orders || []).map(o=> ({ id: o.legacyId || 0, ownerId: o.legacyOwnerId || null, customer_name: o.customer_name, customer_phone: o.customer_phone, items: o.items, total: o.total, status: o.status, proof_url: o.proof_url, created_at: o.created_at, paid_at: o.paid_at })),
+      users: (users || []).map(u=> ({ id: u.legacyId || 0, username: u.username, salt: u.salt, hash: u.hash, role: u.role, business: u.business })),
+      inventories: (inventories || []).map(i=> ({ id: i.legacyId || 0, ownerId: i.legacyOwnerId || null, name: i.name, qty: i.qty, unit: i.unit })),
+      cash: (cash || []).map(c=> ({ id: c.legacyId || 0, ownerId: c.legacyOwnerId || null, type: c.type, amount: c.amount, note: c.note, created_at: c.created_at }))
+    };
+
+    // populate last ids
+    dbFromMongo.lastMenuId = dbFromMongo.menus.length ? Math.max(...dbFromMongo.menus.map(m=>m.id||0)) : 0;
+    dbFromMongo.lastOrderId = dbFromMongo.orders.length ? Math.max(...dbFromMongo.orders.map(o=>o.id||0)) : 0;
+    dbFromMongo.lastUserId = dbFromMongo.users.length ? Math.max(...dbFromMongo.users.map(u=>u.id||0)) : 0;
+    dbFromMongo.lastInventoryId = dbFromMongo.inventories.length ? Math.max(...dbFromMongo.inventories.map(i=>i.id||0)) : 0;
+    dbFromMongo.lastCashId = dbFromMongo.cash.length ? Math.max(...dbFromMongo.cash.map(c=>c.id||0)) : 0;
+
+    // write a local backup file if not present
+    if(!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, JSON.stringify(dbFromMongo, null, 2));
+
+    return dbFromMongo;
+
+  }catch(e){
+    console.warn('Mongo init failed, falling back to file DB:', e.message);
+    return null;
+  }
+}
+
 function readDB(){
   const defaultSeed = {
     menus: [
@@ -60,12 +106,55 @@ function readDB(){
 
 function writeDB(db){
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+  // if using Mongo, sync changed arrays to Mongo collections (upsert by legacyId)
+  if(usingMongo && mongoModels){
+    // users
+    (async ()=>{
+      try{
+        for(const u of db.users || []){
+          const filter = { legacyId: u.id };
+          const update = { $set: { legacyId: u.id, username: u.username, role: u.role, salt: u.salt, hash: u.hash, business: u.business || null } };
+          await mongoModels.User.updateOne(filter, update, { upsert: true });
+        }
+        // menus
+        for(const m of db.menus || []){
+          const filter = { legacyId: m.id };
+          const update = { $set: { legacyId: m.id, legacyOwnerId: m.ownerId || null, name: m.name, price: m.price, available: !!m.available } };
+          await mongoModels.Menu.updateOne(filter, update, { upsert: true });
+        }
+        // orders
+        for(const o of db.orders || []){
+          const filter = { legacyId: o.id };
+          const update = { $set: { legacyId: o.id, legacyOwnerId: o.ownerId || null, customer_name: o.customer_name, customer_phone: o.customer_phone || null, items: o.items || [], total: o.total || 0, status: o.status || 'pending', proof_url: o.proof_url || null, created_at: o.created_at ? new Date(o.created_at) : new Date(), paid_at: o.paid_at ? new Date(o.paid_at) : null } };
+          await mongoModels.Order.updateOne(filter, update, { upsert: true });
+        }
+        // inventories
+        for(const i of db.inventories || []){
+          const filter = { legacyId: i.id };
+          const update = { $set: { legacyId: i.id, legacyOwnerId: i.ownerId || null, name: i.name, qty: i.qty || 0, unit: i.unit || '' } };
+          await mongoModels.Inventory.updateOne(filter, update, { upsert: true });
+        }
+        // cash
+        for(const c of db.cash || []){
+          const filter = { legacyId: c.id };
+          const update = { $set: { legacyId: c.id, legacyOwnerId: c.ownerId || null, type: c.type, amount: c.amount, note: c.note || '', created_at: c.created_at ? new Date(c.created_at) : new Date() } };
+          await mongoModels.Cash.updateOne(filter, update, { upsert: true });
+        }
+      }catch(e){ console.warn('Error syncing to Mongo:', e.message); }
+    })();
+  }
 }
 
-// initialize DB file if needed
+// initialize DB file and optionally load mongo
 let db = readDB();
 
 const crypto = require('crypto');
+
+// If MONGO_URI is present, initialize mongo and replace in-memory db with mongo-loaded data
+(async ()=>{
+  const maybe = await initMongoIfConfigured();
+  if(maybe){ db = maybe; }
+})();
 
 app.get('/api/health', (req,res)=>res.json({ok:true}));
 
@@ -114,26 +203,26 @@ function ensureBusinessSlugs(){
 }
 ensureBusinessSlugs();
 
-const TOKENS = {}; // token -> { userId, exp }
+const jwt = require('jsonwebtoken');
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+
 function createToken(userId){
-  const token = crypto.randomBytes(24).toString('hex');
-  TOKENS[token] = { userId, exp: Date.now() + (12 * 60 * 60 * 1000) }; // 12h
-  return token;
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '12h' });
 }
 function validateToken(token){
   if(!token) return false;
-  const t = TOKENS[token];
-  if(!t) return false;
-  if(t.exp < Date.now()){ delete TOKENS[token]; return false; }
-  return true;
+  try{
+    const payload = jwt.verify(token, JWT_SECRET);
+    return payload; // { userId, iat, exp }
+  }catch(e){ return false; }
 }
 
 function requireAuth(req,res,next){
   const h = req.headers['authorization'] || '';
   const parts = h.split(' ');
-  if(parts.length===2 && parts[0] === 'Bearer' && validateToken(parts[1])){
-    req.token = parts[1];
-    return next();
+  if(parts.length===2 && parts[0] === 'Bearer'){
+    const payload = validateToken(parts[1]);
+    if(payload){ req.token = parts[1]; req.userId = payload.userId; return next(); }
   }
   return res.status(401).json({ error: 'Unauthorized' });
 }
@@ -141,13 +230,15 @@ function requireAuth(req,res,next){
 function requireNegocio(req,res,next){
   const h = req.headers['authorization'] || '';
   const parts = h.split(' ');
-  if(parts.length !== 2 || parts[0] !== 'Bearer' || !validateToken(parts[1])){
+  if(parts.length !== 2 || parts[0] !== 'Bearer'){
     return res.status(401).json({ error: 'Unauthorized' });
   }
+  const payload = validateToken(parts[1]);
+  if(!payload) return res.status(401).json({ error: 'Unauthorized' });
   req.token = parts[1];
-  const tokenData = TOKENS[req.token];
+  const userId = payload.userId;
   db = readDB();
-  const user = db.users.find(u => u.id === tokenData.userId);
+  const user = db.users.find(u => u.id === userId);
   if(!user || user.role !== 'negocio') return res.status(403).json({ error: 'Forbidden' });
   req.user = { id: user.id, username: user.username, role: user.role, business: user.business || {} };
   next();
@@ -199,9 +290,9 @@ app.post('/api/register', (req,res)=>{
 });
 
 app.get('/api/me', requireAuth, (req,res)=>{
-  const tokenData = TOKENS[req.token];
+  const userId = req.userId;
   db = readDB();
-  const user = db.users.find(u => u.id === tokenData.userId);
+  const user = db.users.find(u => u.id === userId);
   if(!user) return res.status(401).json({ error: 'Unauthorized' });
   const userOut = { id: user.id, username: user.username, role: user.role };
   if(user.business) userOut.business = user.business;
@@ -214,9 +305,9 @@ app.get('/api/me', requireAuth, (req,res)=>{
 
 // update business/profile
 app.put('/api/me', requireAuth, (req,res)=>{
-  const tokenData = TOKENS[req.token];
+  const userId = req.userId;
   db = readDB();
-  const user = db.users.find(u => u.id === tokenData.userId);
+  const user = db.users.find(u => u.id === userId);
   if(!user) return res.status(401).json({ error: 'Unauthorized' });
   const { business } = req.body || {};
   if(business && typeof business === 'object'){
@@ -231,9 +322,9 @@ app.put('/api/me', requireAuth, (req,res)=>{
 
 // upload avatar as data URL
 app.post('/api/me/avatar', requireAuth, (req,res)=>{
-  const tokenData = TOKENS[req.token];
+  const userId = req.userId;
   db = readDB();
-  const user = db.users.find(u => u.id === tokenData.userId);
+  const user = db.users.find(u => u.id === userId);
   if(!user) return res.status(401).json({ error: 'Unauthorized' });
   const { image } = req.body || {};
   if(!image || typeof image !== 'string') return res.status(400).json({ error: 'image data required' });
@@ -274,11 +365,13 @@ app.get('/api/menu', (req,res)=>{
   }
   // if auth negocio requesting without query, return only their items
   const authHeader = (req.headers['authorization']||'').split(' ');
-  if(authHeader.length===2 && authHeader[0]==='Bearer' && validateToken(authHeader[1])){
-    const t = TOKENS[authHeader[1]];
-    const user = db.users.find(u=>u.id===t.userId);
-    if(user && user.role === 'negocio'){
-      return res.json(db.menus.filter(m=> m.ownerId === user.id));
+  if(authHeader.length===2 && authHeader[0]==='Bearer'){
+    const payload = validateToken(authHeader[1]);
+    if(payload){
+      const user = db.users.find(u=>u.id===payload.userId);
+      if(user && user.role === 'negocio'){
+        return res.json(db.menus.filter(m=> m.ownerId === user.id));
+      }
     }
   }
   // default: return global menus
