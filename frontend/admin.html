@@ -160,6 +160,8 @@
   </div>
 
   <script>
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function safeUrl(u){ try{ const x=new URL(u, location.origin); if(x.protocol==='http:'||x.protocol==='https:') return x.href; }catch(e){} return '#'; }
     function getToken(){ return localStorage.getItem('admin_token'); }
     function setToken(t){ if(t) localStorage.setItem('admin_token', t); else localStorage.removeItem('admin_token'); }
     function getUser(){ try{ return JSON.parse(localStorage.getItem('admin_user')); }catch(e){ return null } }
@@ -239,17 +241,17 @@
         document.getElementById('filterState').disabled = false;
         document.getElementById('reload').disabled = false;
         rows.innerHTML = filtered.map(o=>{
-          const items = o.items.map(i=>`${i.name} x${i.qty}`).join(', ');
+          const items = o.items.map(i=>`${esc(i.name)} x${esc(i.qty)}`).join(', ');
           return `<tr>
-            <td>#${o.id}</td>
-            <td>${o.customer_name || 'Anon'}<div class="small">${new Date(o.created_at).toLocaleString()}</div></td>
+            <td>#${esc(o.id)}</td>
+            <td>${esc(o.customer_name || 'Anon')}<div class="small">${esc(new Date(o.created_at).toLocaleString())}</div></td>
             <td>${items}</td>
             <td>${fmtMoney(o.total)}</td>
-            <td class="${o.status==='paid' ? 'status-paid' : 'status-pending'}">${o.status}</td>
+            <td class="${o.status==='paid' ? 'status-paid' : 'status-pending'}">${esc(o.status)}</td>
             <td>
-              <button class="btn" onclick="view(${o.id})">Ver</button>
-                <button class="btn btn-ghost" style="margin-left:6px" onclick="sendOrderWA(${o.id})">Enviar WA</button>
-                ${o.status!=='paid' ? `<button class="btn" style="background:#059669;margin-left:6px" onclick="markPaid(${o.id})">Marcar como pagado</button>` : ''}
+              <button class="btn" onclick="view(${Number(o.id)})">Ver</button>
+                <button class="btn btn-ghost" style="margin-left:6px" onclick="sendOrderWA(${Number(o.id)})">Enviar WA</button>
+                ${o.status!=='paid' ? `<button class="btn" style="background:#059669;margin-left:6px" onclick="markPaid(${Number(o.id)})">Marcar como pagado</button>` : ''}
               </td>
           </tr>`
         }).join('');
@@ -263,16 +265,16 @@
       if(res.status === 401 || res.status === 403){ setToken(null); setUser(null); showUnauthorized(); d.innerHTML='No autorizado'; return }
       if(!res.ok){ d.innerHTML='Pedido no encontrado'; return }
       const o = await res.json();
-      const itemsHtml = o.items.map(i=>`<li>${i.name} x ${i.qty} — ${fmtMoney(i.price)}</li>`).join('');
+      const itemsHtml = o.items.map(i=>`<li>${esc(i.name)} x ${esc(i.qty)} — ${fmtMoney(i.price)}</li>`).join('');
       d.innerHTML = `
-        <h3>Pedido #${o.id} <small class="small">${new Date(o.created_at).toLocaleString()}</small></h3>
-        <p><strong>Cliente:</strong> ${o.customer_name}</p>
+        <h3>Pedido #${esc(o.id)} <small class="small">${esc(new Date(o.created_at).toLocaleString())}</small></h3>
+        <p><strong>Cliente:</strong> ${esc(o.customer_name)}</p>
         <ul>${itemsHtml}</ul>
         <p><strong>Total:</strong> ${fmtMoney(o.total)}</p>
-        <p><strong>Estado:</strong> <span class="${o.status==='paid' ? 'status-paid' : 'status-pending'}">${o.status}</span></p>
-        ${o.proof_url ? `<p><strong>Comprobante:</strong> <a href="${o.proof_url}" target="_blank">Ver comprobante</a></p>` : ''}
+        <p><strong>Estado:</strong> <span class="${o.status==='paid' ? 'status-paid' : 'status-pending'}">${esc(o.status)}</span></p>
+        ${o.proof_url ? `<p><strong>Comprobante:</strong> <a href="${safeUrl(o.proof_url)}" target="_blank" rel="noopener">Ver comprobante</a></p>` : ''}
         <div style="margin-top:12px">
-          ${o.status!=='paid' ? `<input id="proof_input" placeholder="URL comprobante (opcional)" style="width:60%" /> <button class="btn" onclick="confirmFromDetail(${o.id})">Confirmar pago</button>` : ''}
+          ${o.status!=='paid' ? `<input id="proof_input" placeholder="URL comprobante (opcional)" style="width:60%" /> <button class="btn" onclick="confirmFromDetail(${Number(o.id)})">Confirmar pago</button>` : ''}
           <button class="btn btn-ghost" style="margin-left:8px" onclick="closeDetail()">Cerrar</button>
         </div>
       `;
@@ -488,7 +490,7 @@
       try{
         let logoUrl = null;
         if(_editLogoData){
-          const r = await fetch('/api/me/avatar', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({ image: _editLogoData }) });
+          const r = await fetch('/api/me/avatar', { method: 'POST', headers: {'content-type':'application/json', 'Authorization': 'Bearer ' + getToken()}, body: JSON.stringify({ image: _editLogoData }) });
           if(!r.ok) throw new Error('Error subiendo logo');
           const jr = await r.json(); logoUrl = jr.url;
         }

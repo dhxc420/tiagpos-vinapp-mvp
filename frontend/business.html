@@ -40,8 +40,8 @@
   </div>
 
   <script>
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
     function fmtMoney(n){ return '$' + Number(n).toLocaleString('es-CO'); }
-    // get slug from path /b/:slug
     const pathParts = window.location.pathname.split('/').filter(Boolean);
     const slug = (pathParts.length >= 2 && pathParts[0] === 'b') ? pathParts[1] : pathParts[0] || '';
 
@@ -57,7 +57,10 @@
         BUSINESS = data.business || {};
         document.getElementById('bizName').textContent = BUSINESS.name || data.username || 'Negocio';
         if(BUSINESS.logo){ document.getElementById('bizLogo').src = BUSINESS.logo; document.getElementById('bizLogo').style.display='block'; }
-        if(BUSINESS.email || BUSINESS.phone) document.getElementById('bizContact').innerHTML = (BUSINESS.email?('✉ '+BUSINESS.email):'') + (BUSINESS.phone?(' • 📞 '+BUSINESS.phone):'');
+        const contact = document.getElementById('bizContact');
+        contact.textContent = '';
+        if(BUSINESS.email) contact.append('✉ ' + BUSINESS.email);
+        if(BUSINESS.phone) contact.append((BUSINESS.email ? ' • ' : '') + '📞 ' + BUSINESS.phone);
         loadMenu();
       }catch(e){ document.getElementById('menuList').innerText = 'Error cargando negocio'; }
     }
@@ -66,71 +69,103 @@
       try{
         const res = await fetch('/api/menu?ownerSlug=' + encodeURIComponent(slug));
         if(!res.ok){ document.getElementById('menuList').innerText = 'Error cargando menú'; return }
-        MENU = await res.json();
+        MENU = (await res.json()).filter(m => m.available !== false);
         renderMenu();
       }catch(e){ document.getElementById('menuList').innerText = 'Error cargando menú'; }
     }
 
     function renderMenu(){
       const el = document.getElementById('menuList');
-      if(!MENU.length){ el.innerHTML = '<div>No hay productos</div>'; return }
-      el.innerHTML = MENU.map(m=>`<div class="menu-item"><div><strong>${m.name}</strong><div class="small">${m.available? 'Disponible':''}</div></div><div style="display:flex;gap:8px;align-items:center"><div class="menu-price">${fmtMoney(m.price)}</div><button class="add-btn" data-id="${m.id}">Agregar</button></div></div>`).join('');
-      el.querySelectorAll('.add-btn').forEach(b=> b.addEventListener('click', ()=>{
+      if(!MENU.length){
+        el.innerHTML = '<div>No hay productos disponibles aún. El negocio puede agregarlos desde el panel admin.</div>';
+        return;
+      }
+      el.innerHTML = MENU.map(m =>
+        `<div class="menu-item"><div><strong>${esc(m.name)}</strong><div class="small">Disponible</div></div>` +
+        `<div style="display:flex;gap:8px;align-items:center"><div class="menu-price">${fmtMoney(m.price)}</div>` +
+        `<button class="add-btn" data-id="${Number(m.id)}">Agregar</button></div></div>`
+      ).join('');
+      el.querySelectorAll('.add-btn').forEach(b => b.addEventListener('click', ()=>{
         const id = Number(b.getAttribute('data-id'));
-        const item = MENU.find(x=>x.id===id);
+        const item = MENU.find(x => x.id === id);
         if(!item) return;
-        const existing = CART.find(c=>c.id===id);
-        if(existing) existing.qty += 1; else CART.push({ id: item.id, name: item.name, price: item.price, qty: 1 });
+        const existing = CART.find(c => c.id === id);
+        if(existing) existing.qty += 1;
+        else CART.push({ id: item.id, name: item.name, price: item.price, qty: 1 });
         renderCart();
       }));
     }
 
     function renderCart(){
       const el = document.getElementById('cartItems');
-      if(!CART.length){ el.innerHTML = 'No hay items en el carrito'; document.getElementById('cartTotal').innerText = ''; document.getElementById('waBtn').style.display='none'; return }
-      el.innerHTML = '<ul>' + CART.map(c=>`<li>${c.name} x ${c.qty} — ${fmtMoney(c.price * c.qty)} <button data-id="${c.id}" class="btn btn-ghost" style="margin-left:8px">-</button></li>`).join('') + '</ul>';
-      el.querySelectorAll('button[data-id]').forEach(b=> b.addEventListener('click', ()=>{
+      if(!CART.length){
+        el.innerHTML = 'No hay items en el carrito';
+        document.getElementById('cartTotal').innerText = '';
+        document.getElementById('waBtn').style.display='none';
+        return;
+      }
+      el.innerHTML = '<ul>' + CART.map(c =>
+        `<li>${esc(c.name)} x ${esc(c.qty)} — ${fmtMoney(c.price * c.qty)} ` +
+        `<button data-id="${Number(c.id)}" class="btn btn-ghost" style="margin-left:8px">-</button></li>`
+      ).join('') + '</ul>';
+      el.querySelectorAll('button[data-id]').forEach(b => b.addEventListener('click', ()=>{
         const id = Number(b.getAttribute('data-id'));
-        const idx = CART.findIndex(x=>x.id===id);
-        if(idx===-1) return;
+        const idx = CART.findIndex(x => x.id === id);
+        if(idx === -1) return;
         CART[idx].qty -= 1;
-        if(CART[idx].qty <= 0) CART.splice(idx,1);
+        if(CART[idx].qty <= 0) CART.splice(idx, 1);
         renderCart();
       }));
       const total = CART.reduce((s,i)=> s + i.qty * i.price, 0);
       document.getElementById('cartTotal').innerText = 'Total: ' + fmtMoney(total);
-      const wa = document.getElementById('waBtn'); wa.style.display='inline-block';
+      const wa = document.getElementById('waBtn');
+      wa.style.display='inline-block';
       wa.onclick = ()=> sendWhatsApp(total);
     }
 
-    async function sendWhatsApp(total){
-      const msgEl = document.getElementById('orderMsg'); msgEl.style.display='none';
+    async function sendWhatsApp(){
+      const msgEl = document.getElementById('orderMsg');
+      msgEl.style.display='none';
       const customer = prompt('Nombre del cliente (opcional)') || 'Cliente';
       const phone = prompt('Teléfono del cliente (opcional, sin +)') || '';
-      // prepare items simplified for server
-      const items = CART.map(c=> ({ id: c.id, name: c.name, price: c.price, qty: c.qty }));
+      const items = CART.map(c => ({ id: c.id, name: c.name, price: c.price, qty: c.qty }));
       try{
-        const res = await fetch('/api/orders', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({ customer_name: customer, customer_phone: phone || null, items, ownerSlug: slug }) });
-        if(!res.ok){ const t = await res.json(); msgEl.textContent = 'Error creando pedido: ' + (t.error||res.statusText); msgEl.className='small inline-msg error'; msgEl.style.display='block'; return }
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: {'content-type':'application/json'},
+          body: JSON.stringify({ customer_name: customer, customer_phone: phone || null, items, ownerSlug: slug })
+        });
+        if(!res.ok){
+          const t = await res.json().catch(()=>({}));
+          msgEl.textContent = 'Error creando pedido: ' + (t.error || res.statusText);
+          msgEl.className='small inline-msg error';
+          msgEl.style.display='block';
+          return;
+        }
         const data = await res.json();
-        // build whatsapp message and open (to business phone)
         let phoneTo = BUSINESS.phone;
-        if(!phoneTo){ const cfg = await fetch('/api/config').then(r=>r.json()); phoneTo = cfg.whatsapp_number; }
-        const lines = items.map(c=> `${c.name} x${c.qty} — ${fmtMoney(c.price * c.qty)}`);
+        if(!phoneTo){
+          const cfg = await fetch('/api/config').then(r=>r.json());
+          phoneTo = cfg.whatsapp_number;
+        }
+        const lines = items.map(c => `${c.name} x${c.qty} — ${fmtMoney(c.price * c.qty)}`);
         lines.push('Total: ' + fmtMoney(data.total));
         lines.push('Pedido ID: ' + data.id);
         if(data.checkout_url) lines.push('Comprobante/checkout: ' + data.checkout_url);
-        const text = encodeURIComponent('Nuevo pedido\n' + lines.join('\n'));
-        const url = `https://wa.me/${phoneTo}?text=${text}`;
-        window.open(url, '_blank');
-        msgEl.textContent = 'Pedido creado. ID: ' + data.id; msgEl.className='small inline-msg success'; msgEl.style.display='block';
-        // clear cart
-        CART = []; renderCart();
-      }catch(e){ msgEl.textContent = 'Error creando pedido: '+e.message; msgEl.className='small inline-msg error'; msgEl.style.display='block'; }
+        window.open(`https://wa.me/${phoneTo}?text=${encodeURIComponent('Nuevo pedido\n' + lines.join('\n'))}`, '_blank');
+        msgEl.textContent = 'Pedido creado. ID: ' + data.id;
+        msgEl.className='small inline-msg success';
+        msgEl.style.display='block';
+        CART = [];
+        renderCart();
+      }catch(e){
+        msgEl.textContent = 'Error creando pedido: ' + e.message;
+        msgEl.className='small inline-msg error';
+        msgEl.style.display='block';
+      }
     }
 
-    // bootstrap
-    if(!slug){ document.getElementById('menuList').innerText = 'Negocio no especificado (url debe ser /b/:slug)'; }
+    if(!slug) document.getElementById('menuList').innerText = 'Negocio no especificado (url debe ser /b/:slug)';
     else loadBusiness();
   </script>
 </body>

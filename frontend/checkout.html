@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Checkout - Nequi</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -18,13 +17,14 @@
   </div>
 
   <script>
-    function fmtMoney(n){ return '$' + (n).toLocaleString('es-CO'); }
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function fmtMoney(n){ return '$' + Number(n).toLocaleString('es-CO'); }
     const params = new URLSearchParams(location.search);
     const orderId = params.get('orderId');
     const total = params.get('total');
+    const token = params.get('token') || '';
 
-    // Nequi number provided by the restaurant
-    const NEQUI_NUMBER = '573242281300'; // country code + number without +
+    const NEQUI_NUMBER = '573242281300';
 
     function buildWaMsg(){
       return encodeURIComponent(`Hola, adjunto comprobante de pago para el pedido #${orderId}. Total: ${fmtMoney(total)}. Gracias.`);
@@ -34,46 +34,47 @@
     const waLink = document.getElementById('waLink');
 
     if(!orderId || !total){
-      info.innerHTML = '<p>No se recibieron parámetros de orden. Vuelve al menú y crea un pedido primero.</p>';
+      info.textContent = 'No se recibieron parámetros de orden. Vuelve al menú y crea un pedido primero.';
       waLink.style.display = 'none';
     } else {
-      info.innerHTML = `<p>Pedido ID: <strong>#${orderId}</strong></p>
-        <p>Total a pagar: <strong>${fmtMoney(Number(total))}</strong></p>
+      info.innerHTML = `<p>Pedido ID: <strong>#${esc(orderId)}</strong></p>
+        <p>Total a pagar: <strong>${esc(fmtMoney(Number(total)))}</strong></p>
         <h3>Instrucciones de pago (Nequi)</h3>
         <ol>
           <li>Abre tu app Nequi.</li>
-          <li>Envía el total al número: <strong>+${NEQUI_NUMBER}</strong>.</li>
+          <li>Envía el total al número: <strong>+${esc(NEQUI_NUMBER)}</strong>.</li>
           <li>Toma una foto o captura de pantalla del comprobante.</li>
           <li>Pulsa "Enviar comprobante por WhatsApp" y adjunta la imagen en el chat con el restaurante.</li>
         </ol>
         <p>Si tienes problemas, contacta al restaurante por WhatsApp.</p>`;
 
-      const waUrl = `https://wa.me/${NEQUI_NUMBER}?text=${buildWaMsg()}`;
-      waLink.href = waUrl;
+      waLink.href = `https://wa.me/${NEQUI_NUMBER}?text=${buildWaMsg()}`;
       waLink.textContent = 'Enviar comprobante por WhatsApp';
 
-      // add confirm payment UI
       const confirmDiv = document.createElement('div');
       confirmDiv.style.marginTop = '12px';
       confirmDiv.innerHTML = `
-        <p style="margin:8px 0">Si ya enviaste el comprobante por WhatsApp, puedes marcar el pedido como pagado aquí (opcionalmente añade la URL del comprobante):</p>
+        <p style="margin:8px 0">Si ya enviaste el comprobante, puedes registrar la URL aquí. El restaurante confirmará el pago desde su panel.</p>
         <input id="proof" placeholder="URL del comprobante (opcional)" style="width:100%;padding:8px;border-radius:6px;border:1px solid #ddd;margin-bottom:8px" />
-        <div style="display:flex;gap:8px"><button id="markPaid">Marcar como pagado</button><span id="confirmMsg" style="align-self:center;color:green"></span></div>
+        <div style="display:flex;gap:8px"><button id="markPaid">Enviar comprobante</button><span id="confirmMsg" style="align-self:center;color:green"></span></div>
       `;
       document.querySelector('.card').appendChild(confirmDiv);
 
       document.getElementById('markPaid').addEventListener('click', async ()=>{
         const proof = document.getElementById('proof').value.trim();
         try{
-          const res = await fetch(`/api/orders/${orderId}/proof`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({ proof_url: proof || null })});
+          const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/proof`,{
+            method:'POST',
+            headers:{'content-type':'application/json'},
+            body:JSON.stringify({ proof_url: proof || null, token })
+          });
           if(!res.ok) throw new Error('Error en la solicitud');
-          const data = await res.json();
-          document.getElementById('confirmMsg').textContent = 'Comprobante enviado. El restaurante puede validar el pedido.';
+          document.getElementById('confirmMsg').textContent = 'Comprobante registrado. El restaurante validará el pedido.';
         }catch(err){
-          alert('No se pudo enviar el comprobante.');
+          alert('No se pudo enviar el comprobante. Abre el link de checkout del pedido.');
         }
       });
     }
-    </script>
+  </script>
 </body>
 </html>

@@ -28,8 +28,10 @@ const orderSchema = new mongoose.Schema({
   total: Number,
   status: String,
   proof_url: String,
+  proof_token: String,
   created_at: Date,
-  paid_at: Date
+  paid_at: Date,
+  proof_submitted_at: Date
 }, { timestamps: true });
 
 const invSchema = new mongoose.Schema({
