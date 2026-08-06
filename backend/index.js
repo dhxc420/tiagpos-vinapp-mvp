@@ -517,7 +517,7 @@ app.put('/api/me', requireAuth, async (req, res) => {
   const { business } = req.body || {};
   if (!business || typeof business !== 'object') return res.status(400).json({ error: 'business object required' });
   user.business = user.business || {};
-  ['name', 'email', 'phone', 'address', 'logo'].forEach(k => {
+  ['name', 'email', 'phone', 'address', 'logo', 'banner'].forEach(k => {
     if (typeof business[k] !== 'undefined') user.business[k] = business[k];
   });
   if (typeof business.is_open !== 'undefined') user.business.is_open = !!business.is_open;
@@ -539,28 +539,33 @@ app.post('/api/me/open-status', requireNegocio, async (req, res) => {
   res.json({ ok: true, is_open: user.business.is_open, business: user.business });
 });
 
-app.post('/api/me/avatar', requireAuth, async (req, res) => {
+async function saveBusinessImage(req, res, field) {
   db = readDB();
   const user = db.users.find(u => u.id === req.userId);
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (user.role !== 'negocio' && user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only negocio can upload business images' });
+  }
   const { image } = req.body || {};
   if (!image || typeof image !== 'string') return res.status(400).json({ error: 'image data required' });
   const m = image.match(/^data:(image\/(png|jpeg|jpg|webp));base64,(.+)$/);
   if (!m) return res.status(400).json({ error: 'invalid image data' });
   user.business = user.business || {};
-  // On serverless, /tmp uploads are ephemeral — persist the data URL in Mongo/business.
   if (IS_SERVERLESS) {
     if (image.length > 1_500_000) return res.status(400).json({ error: 'image too large (max ~1MB)' });
-    user.business.logo = image;
+    user.business[field] = image;
   } else {
     const ext = m[2] === 'jpeg' ? 'jpg' : m[2];
-    const filename = `${user.id}_${Date.now()}.${ext}`;
+    const filename = `${user.id}_${field}_${Date.now()}.${ext}`;
     fs.writeFileSync(path.join(UPLOAD_DIR, filename), Buffer.from(m[3], 'base64'));
-    user.business.logo = `/uploads/${filename}`;
+    user.business[field] = `/uploads/${filename}`;
   }
   await writeDB(db);
-  res.json({ url: user.business.logo });
-});
+  res.json({ url: user.business[field], field });
+}
+
+app.post('/api/me/avatar', requireAuth, (req, res) => saveBusinessImage(req, res, 'logo'));
+app.post('/api/me/banner', requireAuth, (req, res) => saveBusinessImage(req, res, 'banner'));
 
 app.get('/api/config', (req, res) => {
   res.json({

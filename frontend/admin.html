@@ -177,11 +177,20 @@
           <input id="editBizOpen" type="checkbox" checked />
           Negocio disponible para pedidos
         </label>
-        <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
-          <input id="editLogoFile" type="file" accept="image/*" />
-          <img id="editLogoPreview" src="" style="width:56px;height:56px;border-radius:8px;object-fit:cover;display:none;border:1px solid rgba(0,0,0,0.06)" />
-          <div id="editMsg" class="small inline-msg" style="display:none"></div>
+        <div class="edit-media-row">
+          <div class="edit-media-block">
+            <div class="small" style="font-weight:700;margin-bottom:6px">Logo</div>
+            <input id="editLogoFile" type="file" accept="image/png,image/jpeg,image/webp" />
+            <img id="editLogoPreview" src="" alt="Logo" class="edit-logo-preview" />
+          </div>
+          <div class="edit-media-block">
+            <div class="small" style="font-weight:700;margin-bottom:6px">Banner (página pública)</div>
+            <input id="editBannerFile" type="file" accept="image/png,image/jpeg,image/webp" />
+            <img id="editBannerPreview" src="" alt="Banner" class="edit-banner-preview" />
+            <button id="editBannerClear" type="button" class="btn btn-ghost" style="margin-top:8px;display:none">Quitar banner</button>
+          </div>
         </div>
+        <div id="editMsg" class="small inline-msg" style="display:none;margin-top:8px"></div>
       </div>
       <div class="modal-actions">
         <button id="editCancel" class="btn btn-ghost">Cancelar</button>
@@ -491,22 +500,34 @@
     // Edit profile modal handlers
     function showEditForm(){
       showInlineMessage('editMsg','');
+      _editLogoData = null;
+      _editBannerData = null;
+      _clearBanner = false;
       const user = getUser();
+      const logoPrev = document.getElementById('editLogoPreview');
+      const bannerPrev = document.getElementById('editBannerPreview');
+      const bannerClear = document.getElementById('editBannerClear');
+      document.getElementById('editLogoFile').value = '';
+      document.getElementById('editBannerFile').value = '';
       if(user && user.business){
         document.getElementById('editBizName').value = user.business.name || '';
         document.getElementById('editBizEmail').value = user.business.email || '';
         document.getElementById('editBizPhone').value = user.business.phone || '';
         document.getElementById('editBizAddress').value = user.business.address || '';
         document.getElementById('editBizOpen').checked = (typeof user.business.is_open === 'undefined') ? true : !!user.business.is_open;
-        if(user.business.logo){ document.getElementById('editLogoPreview').src = user.business.logo; document.getElementById('editLogoPreview').style.display = 'block'; }
-        else { document.getElementById('editLogoPreview').style.display = 'none'; }
+        if(user.business.logo){ logoPrev.src = user.business.logo; logoPrev.classList.add('is-visible'); }
+        else { logoPrev.removeAttribute('src'); logoPrev.classList.remove('is-visible'); }
+        if(user.business.banner){ bannerPrev.src = user.business.banner; bannerPrev.classList.add('is-visible'); bannerClear.style.display = 'inline-block'; }
+        else { bannerPrev.removeAttribute('src'); bannerPrev.classList.remove('is-visible'); bannerClear.style.display = 'none'; }
       } else {
         document.getElementById('editBizName').value = '';
         document.getElementById('editBizEmail').value = '';
         document.getElementById('editBizPhone').value = '';
         document.getElementById('editBizAddress').value = '';
         document.getElementById('editBizOpen').checked = true;
-        document.getElementById('editLogoPreview').style.display = 'none';
+        logoPrev.removeAttribute('src'); logoPrev.classList.remove('is-visible');
+        bannerPrev.removeAttribute('src'); bannerPrev.classList.remove('is-visible');
+        bannerClear.style.display = 'none';
       }
       document.getElementById('editOverlay').style.display = 'flex';
       setTimeout(()=>document.getElementById('editBizName').focus(),50);
@@ -518,12 +539,40 @@
 
     // file input preview + read
     let _editLogoData = null;
+    let _editBannerData = null;
+    let _clearBanner = false;
     document.getElementById('editLogoFile').addEventListener('change', (e)=>{
       const f = e.target.files && e.target.files[0];
       if(!f) return;
       const reader = new FileReader();
-      reader.onload = function(ev){ _editLogoData = ev.target.result; document.getElementById('editLogoPreview').src = _editLogoData; document.getElementById('editLogoPreview').style.display = 'block'; };
+      reader.onload = function(ev){
+        _editLogoData = ev.target.result;
+        const prev = document.getElementById('editLogoPreview');
+        prev.src = _editLogoData; prev.classList.add('is-visible');
+      };
       reader.readAsDataURL(f);
+    });
+    document.getElementById('editBannerFile').addEventListener('change', (e)=>{
+      const f = e.target.files && e.target.files[0];
+      if(!f) return;
+      const reader = new FileReader();
+      reader.onload = function(ev){
+        _editBannerData = ev.target.result;
+        _clearBanner = false;
+        const prev = document.getElementById('editBannerPreview');
+        prev.src = _editBannerData; prev.classList.add('is-visible');
+        document.getElementById('editBannerClear').style.display = 'inline-block';
+      };
+      reader.readAsDataURL(f);
+    });
+    document.getElementById('editBannerClear').addEventListener('click', (e)=>{
+      e.preventDefault();
+      _editBannerData = null;
+      _clearBanner = true;
+      document.getElementById('editBannerFile').value = '';
+      const prev = document.getElementById('editBannerPreview');
+      prev.removeAttribute('src'); prev.classList.remove('is-visible');
+      e.currentTarget.style.display = 'none';
     });
 
     document.getElementById('editSave').addEventListener('click', async (e)=>{
@@ -540,13 +589,24 @@
       const saveBtn = document.getElementById('editSave'); saveBtn.disabled = true; saveBtn.textContent = 'Guardando...';
       try{
         let logoUrl = null;
+        let bannerUrl = null;
         if(_editLogoData){
           const r = await fetch('/api/me/avatar', { method: 'POST', headers: {'content-type':'application/json', 'Authorization': 'Bearer ' + getToken()}, body: JSON.stringify({ image: _editLogoData }) });
           if(!r.ok) throw new Error('Error subiendo logo');
           const jr = await r.json(); logoUrl = jr.url;
         }
+        if(_editBannerData){
+          const r = await fetch('/api/me/banner', { method: 'POST', headers: {'content-type':'application/json', 'Authorization': 'Bearer ' + getToken()}, body: JSON.stringify({ image: _editBannerData }) });
+          if(!r.ok){
+            const t = await r.json().catch(()=>({}));
+            throw new Error(t.error || 'Error subiendo banner');
+          }
+          const jr = await r.json(); bannerUrl = jr.url;
+        }
         const payload = { business: { name, email, phone, address, is_open } };
         if(logoUrl) payload.business.logo = logoUrl;
+        if(bannerUrl) payload.business.banner = bannerUrl;
+        else if(_clearBanner) payload.business.banner = '';
         const res = await fetch('/api/me', { method: 'PUT', headers: {'content-type':'application/json', 'Authorization': 'Bearer ' + getToken()}, body: JSON.stringify(payload) });
         if(!res.ok){ const t = await res.json(); throw new Error(t.error || 'Error guardando'); }
         const updated = await res.json();

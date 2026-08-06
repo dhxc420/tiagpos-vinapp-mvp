@@ -22,14 +22,18 @@
     </header>
 
     <main>
-      <div id="bizHeader" style="display:flex;align-items:flex-start;gap:16px;margin-bottom:18px;flex-wrap:wrap">
-        <img id="bizLogo" src="" style="width:84px;height:84px;border-radius:12px;display:none;object-fit:cover;border:1px solid var(--line)" />
-        <div style="flex:1;min-width:200px">
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <h1 id="bizName" style="margin:0;color:var(--accent)"></h1>
+      <div id="bizBanner" class="biz-banner" aria-hidden="true">
+        <img id="bizBannerImg" alt="" />
+      </div>
+
+      <div id="bizHeader" class="biz-header">
+        <img id="bizLogo" class="biz-logo" src="" alt="logo" />
+        <div class="biz-header-copy">
+          <div class="biz-title-row">
+            <h1 id="bizName"></h1>
             <span id="bizOpenBadge" class="biz-status" style="display:none"></span>
           </div>
-          <div id="bizAddress" class="small" style="color:var(--muted);margin-top:8px;display:none"></div>
+          <div id="bizAddress" class="small biz-address" style="display:none"></div>
           <div id="bizDesc" class="small" style="color:var(--muted);margin-top:4px"></div>
         </div>
       </div>
@@ -114,7 +118,21 @@
         BUSINESS = data.business || {};
         IS_OPEN = businessIsOpen(BUSINESS);
         document.getElementById('bizName').textContent = BUSINESS.name || data.username || 'Negocio';
-        if(BUSINESS.logo){ document.getElementById('bizLogo').src = BUSINESS.logo; document.getElementById('bizLogo').style.display='block'; }
+        const logoEl = document.getElementById('bizLogo');
+        if(BUSINESS.logo){ logoEl.src = BUSINESS.logo; logoEl.classList.add('is-visible'); }
+        else { logoEl.removeAttribute('src'); logoEl.classList.remove('is-visible'); }
+
+        const bannerWrap = document.getElementById('bizBanner');
+        const bannerImg = document.getElementById('bizBannerImg');
+        if(BUSINESS.banner){
+          bannerImg.src = BUSINESS.banner;
+          bannerWrap.classList.add('has-image');
+          bannerWrap.classList.remove('is-placeholder');
+        } else {
+          bannerImg.removeAttribute('src');
+          bannerWrap.classList.remove('has-image');
+          bannerWrap.classList.add('is-placeholder');
+        }
 
         const badge = document.getElementById('bizOpenBadge');
         badge.style.display = 'inline-flex';
