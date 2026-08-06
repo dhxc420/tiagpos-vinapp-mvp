@@ -291,9 +291,10 @@ html:not([data-theme="dark"]) .open-toggle button.is-open{color:#fff}
 }
 .dash-label{font-size:.78rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .dash-value{
-  font-family:var(--font-display);font-size:1.7rem;font-weight:800;margin-top:8px;letter-spacing:-0.03em;
-  overflow-wrap:anywhere;word-break:break-word;
+  font-family:var(--font-display);font-size:clamp(1.15rem, 2.2vw, 1.45rem);font-weight:800;margin-top:8px;letter-spacing:-0.03em;
+  line-height:1.15;overflow-wrap:anywhere;word-break:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
+.dash-value.is-text{white-space:normal;font-size:1.05rem;letter-spacing:-0.02em}
 .dash-recent{
   margin-top:18px;padding:16px;border-radius:16px;border:1px solid var(--line);background:var(--bg-elev);
   min-width:0;overflow:hidden;
@@ -317,7 +318,7 @@ html:not([data-theme="dark"]) .open-toggle button.is-open{color:#fff}
 }
 @media (max-width:620px){
   .dash-grid{grid-template-columns:1fr}
-  .dash-value{font-size:1.45rem}
+  .dash-value{font-size:1.25rem}
   .header-session{width:100%;justify-content:space-between}
   .header-session-who{white-space:normal;font-size:.82rem}
 }
