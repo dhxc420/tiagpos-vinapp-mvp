@@ -235,8 +235,6 @@ async function writeDB(current) {
 
 db = readFileDb();
 
-app.get('/api/health', (req, res) => res.json({ ok: true, mongo: usingMongo }));
-
 function hashPassword(password, salt) {
   salt = salt || crypto.randomBytes(16).toString('hex');
   const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
@@ -327,6 +325,8 @@ app.use(async (req, res, next) => {
     res.status(503).json({ error: 'Service initializing' });
   }
 });
+
+app.get('/api/health', (req, res) => res.json({ ok: true, mongo: usingMongo }));
 
 if (!process.env.JWT_SECRET && IS_SERVERLESS) {
   console.warn('WARNING: JWT_SECRET is not set; sessions will break across instances');
