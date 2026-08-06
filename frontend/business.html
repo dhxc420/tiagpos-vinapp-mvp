@@ -22,12 +22,21 @@
     </header>
 
     <main>
-      <div id="bizHeader" style="display:flex;align-items:center;gap:16px;margin-bottom:18px">
-        <img id="bizLogo" src="" style="width:84px;height:84px;border-radius:12px;display:none;object-fit:cover;border:1px solid rgba(0,0,0,0.06)" />
-        <div>
-          <h1 id="bizName" style="margin:0;color:var(--accent)"></h1>
-          <div id="bizDesc" class="small" style="color:var(--muted)"></div>
+      <div id="bizHeader" style="display:flex;align-items:flex-start;gap:16px;margin-bottom:18px;flex-wrap:wrap">
+        <img id="bizLogo" src="" style="width:84px;height:84px;border-radius:12px;display:none;object-fit:cover;border:1px solid var(--line)" />
+        <div style="flex:1;min-width:200px">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <h1 id="bizName" style="margin:0;color:var(--accent)"></h1>
+            <span id="bizOpenBadge" class="biz-status" style="display:none"></span>
+          </div>
+          <div id="bizAddress" class="small" style="color:var(--muted);margin-top:8px;display:none"></div>
+          <div id="bizDesc" class="small" style="color:var(--muted);margin-top:4px"></div>
         </div>
+      </div>
+
+      <div id="closedBanner" class="card" style="display:none;margin-bottom:12px;border-color:var(--accent-hot)">
+        <strong>Negocio no disponible</strong>
+        <p class="small" style="margin:6px 0 0">Este negocio no está recibiendo pedidos ahora. Puedes ver el menú, pero no enviar pedidos.</p>
       </div>
 
       <div class="card" id="menuCard">
@@ -90,6 +99,12 @@
     let MENU = [];
     let CART = [];
     let SENDING = false;
+    let IS_OPEN = true;
+
+    function businessIsOpen(b){
+      if(!b) return true;
+      return typeof b.is_open === 'undefined' ? true : !!b.is_open;
+    }
 
     async function loadBusiness(){
       try{
@@ -97,8 +112,31 @@
         if(!res.ok){ document.getElementById('menuList').innerText = 'Negocio no encontrado'; return }
         const data = await res.json();
         BUSINESS = data.business || {};
+        IS_OPEN = businessIsOpen(BUSINESS);
         document.getElementById('bizName').textContent = BUSINESS.name || data.username || 'Negocio';
         if(BUSINESS.logo){ document.getElementById('bizLogo').src = BUSINESS.logo; document.getElementById('bizLogo').style.display='block'; }
+
+        const badge = document.getElementById('bizOpenBadge');
+        badge.style.display = 'inline-flex';
+        if(IS_OPEN){
+          badge.textContent = 'Disponible';
+          badge.className = 'biz-status biz-status-open';
+        } else {
+          badge.textContent = 'No disponible';
+          badge.className = 'biz-status biz-status-closed';
+        }
+
+        const addr = document.getElementById('bizAddress');
+        if(BUSINESS.address){
+          addr.style.display = 'block';
+          addr.textContent = '📍 ' + BUSINESS.address;
+        } else {
+          addr.style.display = 'none';
+          addr.textContent = '';
+        }
+
+        document.getElementById('closedBanner').style.display = IS_OPEN ? 'none' : 'block';
+
         const contact = document.getElementById('bizContact');
         contact.textContent = '';
         if(BUSINESS.email) contact.append('✉ ' + BUSINESS.email);
@@ -113,6 +151,7 @@
         if(!res.ok){ document.getElementById('menuList').innerText = 'Error cargando menú'; return }
         MENU = (await res.json()).filter(m => m.available !== false);
         renderMenu();
+        renderCart();
       }catch(e){ document.getElementById('menuList').innerText = 'Error cargando menú'; }
     }
 
@@ -123,10 +162,14 @@
         return;
       }
       el.innerHTML = MENU.map(m =>
-        `<div class="menu-item"><div><strong>${esc(m.name)}</strong><div class="small">Disponible</div></div>` +
+        `<div class="menu-item"><div><strong>${esc(m.name)}</strong><div class="small">${IS_OPEN ? 'Disponible' : 'Negocio cerrado'}</div></div>` +
         `<div style="display:flex;gap:8px;align-items:center"><div class="menu-price">${fmtMoney(m.price)}</div>` +
-        `<button class="add-btn" data-id="${Number(m.id)}">Agregar</button></div></div>`
+        (IS_OPEN
+          ? `<button class="add-btn" data-id="${Number(m.id)}">Agregar</button>`
+          : `<button class="add-btn" disabled style="opacity:.5;cursor:not-allowed">Cerrado</button>`) +
+        `</div></div>`
       ).join('');
+      if(!IS_OPEN) return;
       el.querySelectorAll('.add-btn').forEach(b => b.addEventListener('click', ()=>{
         const id = Number(b.getAttribute('data-id'));
         const item = MENU.find(x => x.id === id);
@@ -142,6 +185,13 @@
       const el = document.getElementById('cartItems');
       const fields = document.getElementById('checkoutFields');
       const wa = document.getElementById('waBtn');
+      if(!IS_OPEN){
+        el.innerHTML = 'El negocio no está disponible para pedidos.';
+        document.getElementById('cartTotal').innerText = '';
+        wa.style.display='none';
+        fields.style.display='none';
+        return;
+      }
       if(!CART.length){
         el.innerHTML = 'No hay items en el carrito';
         document.getElementById('cartTotal').innerText = '';

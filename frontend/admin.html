@@ -30,6 +30,13 @@
             <div id="sidebarBizName" style="font-weight:800;color:var(--accent)"></div>
             <div id="sidebarBizRole" class="small" style="color:var(--muted)">Negocio</div>
               <div style="margin-top:6px"><a id="publicLink" href="#" target="_blank" class="small" style="color:var(--muted);text-decoration:none">Ver página pública</a></div>
+              <div id="openStatusBox" class="open-toggle" style="display:none">
+                <div>
+                  <div style="font-weight:800;font-size:.9rem">Estado del negocio</div>
+                  <div id="openStatusLabel" class="small">Disponible</div>
+                </div>
+                <button id="openStatusBtn" type="button" class="is-open">Disponible</button>
+              </div>
             </div>
         </div>
         <nav id="sidebarNav">
@@ -154,6 +161,10 @@
         <div class="form-row" style="margin-bottom:8px">
           <input id="editBizAddress" placeholder="Dirección" />
         </div>
+        <label style="display:flex;align-items:center;gap:8px;margin:10px 0;font-weight:700">
+          <input id="editBizOpen" type="checkbox" checked />
+          Negocio disponible para pedidos
+        </label>
         <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
           <input id="editLogoFile" type="file" accept="image/*" />
           <img id="editLogoPreview" src="" style="width:56px;height:56px;border-radius:8px;object-fit:cover;display:none;border:1px solid rgba(0,0,0,0.06)" />
@@ -473,6 +484,7 @@
         document.getElementById('editBizEmail').value = user.business.email || '';
         document.getElementById('editBizPhone').value = user.business.phone || '';
         document.getElementById('editBizAddress').value = user.business.address || '';
+        document.getElementById('editBizOpen').checked = (typeof user.business.is_open === 'undefined') ? true : !!user.business.is_open;
         if(user.business.logo){ document.getElementById('editLogoPreview').src = user.business.logo; document.getElementById('editLogoPreview').style.display = 'block'; }
         else { document.getElementById('editLogoPreview').style.display = 'none'; }
       } else {
@@ -480,6 +492,7 @@
         document.getElementById('editBizEmail').value = '';
         document.getElementById('editBizPhone').value = '';
         document.getElementById('editBizAddress').value = '';
+        document.getElementById('editBizOpen').checked = true;
         document.getElementById('editLogoPreview').style.display = 'none';
       }
       document.getElementById('editOverlay').style.display = 'flex';
@@ -507,6 +520,7 @@
       const email = document.getElementById('editBizEmail').value.trim();
       const phone = document.getElementById('editBizPhone').value.trim();
       const address = document.getElementById('editBizAddress').value.trim();
+      const is_open = document.getElementById('editBizOpen').checked;
       if(!name){ showInlineMessage('editMsg','Nombre del negocio requerido','error'); return }
       if(email && !/^\S+@\S+\.\S+$/.test(email)){ showInlineMessage('editMsg','Correo inválido','error'); return }
       if(phone && !/^[0-9+]{7,20}$/.test(phone)){ showInlineMessage('editMsg','Teléfono inválido','error'); return }
@@ -518,7 +532,7 @@
           if(!r.ok) throw new Error('Error subiendo logo');
           const jr = await r.json(); logoUrl = jr.url;
         }
-        const payload = { business: { name, email, phone, address } };
+        const payload = { business: { name, email, phone, address, is_open } };
         if(logoUrl) payload.business.logo = logoUrl;
         const res = await fetch('/api/me', { method: 'PUT', headers: {'content-type':'application/json', 'Authorization': 'Bearer ' + getToken()}, body: JSON.stringify(payload) });
         if(!res.ok){ const t = await res.json(); throw new Error(t.error || 'Error guardando'); }
@@ -580,6 +594,7 @@
           }
           const navNeg = document.getElementById('navNegocios');
           if(navNeg) navNeg.style.display = user.role === 'admin' ? 'list-item' : 'none';
+          updateOpenStatusUI(user);
           const post = document.getElementById('postAuthControls'); if(post) post.style.display = 'block';
           const list = document.getElementById('list'); if(list) list.style.display = 'block';
           const d = document.getElementById('detail'); if(d) d.style.display='none';
@@ -600,6 +615,56 @@
         const post = document.getElementById('postAuthControls'); if(post) post.style.display = 'none';
         const list = document.getElementById('list'); if(list) list.style.display = 'none';
         if(sidebar) sidebar.style.display = 'none';
+      }
+    }
+
+    function businessIsOpen(b){
+      if(!b) return true;
+      return typeof b.is_open === 'undefined' ? true : !!b.is_open;
+    }
+
+    function updateOpenStatusUI(user){
+      const box = document.getElementById('openStatusBox');
+      const btn = document.getElementById('openStatusBtn');
+      const label = document.getElementById('openStatusLabel');
+      if(!box || !btn || !label) return;
+      if(!user || user.role !== 'negocio'){
+        box.style.display = 'none';
+        return;
+      }
+      box.style.display = 'flex';
+      const open = businessIsOpen(user.business);
+      label.textContent = open ? 'Los clientes pueden pedir ahora' : 'Los clientes ven “No disponible”';
+      btn.textContent = open ? 'Disponible' : 'No disponible';
+      btn.className = open ? 'is-open' : 'is-closed';
+    }
+
+    async function toggleBusinessOpen(){
+      const user = getUser();
+      if(!user || user.role !== 'negocio') return;
+      const next = !businessIsOpen(user.business);
+      const btn = document.getElementById('openStatusBtn');
+      if(btn){ btn.disabled = true; btn.textContent = 'Guardando...'; }
+      try{
+        const res = await apiFetch('/api/me/open-status', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ is_open: next })
+        });
+        if(!res.ok){
+          const t = await res.json().catch(()=>({}));
+          throw new Error(t.error || 'No se pudo actualizar');
+        }
+        const data = await res.json();
+        user.business = data.business || user.business || {};
+        user.business.is_open = data.is_open;
+        setUser(user);
+        updateOpenStatusUI(user);
+      }catch(e){
+        alert(e.message);
+        updateOpenStatusUI(getUser());
+      }finally{
+        if(btn) btn.disabled = false;
       }
     }
 
@@ -823,6 +888,8 @@
 
     updateAuthUI();
     load();
+    const openBtn = document.getElementById('openStatusBtn');
+    if(openBtn) openBtn.addEventListener('click', toggleBusinessOpen);
   </script>
   <script src="/theme.js"></script>
 </body>

@@ -519,8 +519,23 @@ app.put('/api/me', requireAuth, async (req, res) => {
   ['name', 'email', 'phone', 'address', 'logo'].forEach(k => {
     if (typeof business[k] !== 'undefined') user.business[k] = business[k];
   });
+  if (typeof business.is_open !== 'undefined') user.business.is_open = !!business.is_open;
   await writeDB(db);
   res.json({ id: user.id, username: user.username, role: user.role, business: user.business });
+});
+
+app.post('/api/me/open-status', requireNegocio, async (req, res) => {
+  db = readDB();
+  const user = db.users.find(u => u.id === req.user.id);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (user.role === 'admin') return res.status(400).json({ error: 'Admin has no public storefront status' });
+  user.business = user.business || {};
+  if (typeof req.body?.is_open === 'undefined') {
+    return res.status(400).json({ error: 'is_open boolean required' });
+  }
+  user.business.is_open = !!req.body.is_open;
+  await writeDB(db);
+  res.json({ ok: true, is_open: user.business.is_open, business: user.business });
 });
 
 app.post('/api/me/avatar', requireAuth, async (req, res) => {
@@ -623,6 +638,7 @@ app.get('/api/b/:slug', (req, res) => {
   const user = db.users.find(u => u.business && u.business.slug === req.params.slug);
   if (!user) return res.status(404).json({ error: 'Business not found' });
   const b = Object.assign({}, user.business);
+  if (typeof b.is_open === 'undefined') b.is_open = true;
   res.json({ username: user.username, business: b, slug: user.business.slug });
 });
 
@@ -636,10 +652,13 @@ app.post('/api/orders', async (req, res) => {
   db = readDB();
 
   let ownerId = null;
+  let owner = null;
   if (ownerSlug) {
-    const owner = db.users.find(u => u.business && u.business.slug === ownerSlug);
+    owner = db.users.find(u => u.business && u.business.slug === ownerSlug);
     if (!owner) return res.status(404).json({ error: 'Business not found' });
     ownerId = owner.id;
+    const isOpen = owner.business && typeof owner.business.is_open === 'undefined' ? true : !!owner.business.is_open;
+    if (!isOpen) return res.status(403).json({ error: 'El negocio no está disponible para pedidos en este momento' });
   }
 
   // Server-side pricing — never trust client prices
