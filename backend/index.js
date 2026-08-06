@@ -65,8 +65,8 @@ async function initMongoIfConfigured(){
     dbFromMongo.lastInventoryId = dbFromMongo.inventories.length ? Math.max(...dbFromMongo.inventories.map(i=>i.id||0)) : 0;
     dbFromMongo.lastCashId = dbFromMongo.cash.length ? Math.max(...dbFromMongo.cash.map(c=>c.id||0)) : 0;
 
-    // write a local backup file if not present
-    if(!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, JSON.stringify(dbFromMongo, null, 2));
+    // Always refresh the local snapshot from Mongo so serverless instances stay consistent
+    try{ fs.writeFileSync(DB_FILE, JSON.stringify(dbFromMongo, null, 2)); }catch(e){ console.warn('Could not mirror Mongo DB to local file:', e.message); }
 
     return dbFromMongo;
 
@@ -77,6 +77,12 @@ async function initMongoIfConfigured(){
 }
 
 function readDB(){
+  // When Mongo is active, keep a single in-memory snapshot and sync out via writeDB.
+  // Re-reading the file would wipe data that only exists in Mongo / memory.
+  if(usingMongo){
+    return db;
+  }
+
   const defaultSeed = {
     menus: [
       { id: 1, name: 'Pizza Margarita', price: 25000, available: true },
@@ -100,18 +106,18 @@ function readDB(){
   }
 
   try{
-    const db = JSON.parse(fs.readFileSync(DB_FILE));
-    db.menus = Array.isArray(db.menus) ? db.menus : defaultSeed.menus.slice();
-    db.orders = Array.isArray(db.orders) ? db.orders : [];
-    db.users = Array.isArray(db.users) ? db.users : [];
-    db.inventories = Array.isArray(db.inventories) ? db.inventories : [];
-    db.cash = Array.isArray(db.cash) ? db.cash : [];
-    db.lastMenuId = Number.isFinite(db.lastMenuId) ? db.lastMenuId : (db.menus.length ? Math.max(...db.menus.map(m=>m.id)) : defaultSeed.lastMenuId);
-    db.lastOrderId = Number.isFinite(db.lastOrderId) ? db.lastOrderId : (db.orders.length ? Math.max(...db.orders.map(o=>o.id)) : defaultSeed.lastOrderId);
-    db.lastUserId = Number.isFinite(db.lastUserId) ? db.lastUserId : (db.users.length ? Math.max(...db.users.map(u=>u.id)) : defaultSeed.lastUserId);
-    db.lastInventoryId = Number.isFinite(db.lastInventoryId) ? db.lastInventoryId : (db.inventories.length ? Math.max(...db.inventories.map(i=>i.id)) : defaultSeed.lastInventoryId);
-    db.lastCashId = Number.isFinite(db.lastCashId) ? db.lastCashId : (db.cash.length ? Math.max(...db.cash.map(c=>c.id)) : defaultSeed.lastCashId);
-    return db;
+    const fileDb = JSON.parse(fs.readFileSync(DB_FILE));
+    fileDb.menus = Array.isArray(fileDb.menus) ? fileDb.menus : defaultSeed.menus.slice();
+    fileDb.orders = Array.isArray(fileDb.orders) ? fileDb.orders : [];
+    fileDb.users = Array.isArray(fileDb.users) ? fileDb.users : [];
+    fileDb.inventories = Array.isArray(fileDb.inventories) ? fileDb.inventories : [];
+    fileDb.cash = Array.isArray(fileDb.cash) ? fileDb.cash : [];
+    fileDb.lastMenuId = Number.isFinite(fileDb.lastMenuId) ? fileDb.lastMenuId : (fileDb.menus.length ? Math.max(...fileDb.menus.map(m=>m.id)) : defaultSeed.lastMenuId);
+    fileDb.lastOrderId = Number.isFinite(fileDb.lastOrderId) ? fileDb.lastOrderId : (fileDb.orders.length ? Math.max(...fileDb.orders.map(o=>o.id)) : defaultSeed.lastOrderId);
+    fileDb.lastUserId = Number.isFinite(fileDb.lastUserId) ? fileDb.lastUserId : (fileDb.users.length ? Math.max(...fileDb.users.map(u=>u.id)) : defaultSeed.lastUserId);
+    fileDb.lastInventoryId = Number.isFinite(fileDb.lastInventoryId) ? fileDb.lastInventoryId : (fileDb.inventories.length ? Math.max(...fileDb.inventories.map(i=>i.id)) : defaultSeed.lastInventoryId);
+    fileDb.lastCashId = Number.isFinite(fileDb.lastCashId) ? fileDb.lastCashId : (fileDb.cash.length ? Math.max(...fileDb.cash.map(c=>c.id)) : defaultSeed.lastCashId);
+    return fileDb;
   }catch(err){
     fs.writeFileSync(DB_FILE, JSON.stringify(defaultSeed, null, 2));
     return defaultSeed;
@@ -164,13 +170,7 @@ let db = readDB();
 
 const crypto = require('crypto');
 
-// If MONGO_URI is present, initialize mongo and replace in-memory db with mongo-loaded data
-(async ()=>{
-  const maybe = await initMongoIfConfigured();
-  if(maybe){ db = maybe; }
-})();
-
-app.get('/api/health', (req,res)=>res.json({ok:true}));
+app.get('/api/health', (req,res)=>res.json({ok:true, mongo: usingMongo}));
 
 // password hashing helpers (pbkdf2)
 function hashPassword(password, salt){
@@ -198,53 +198,35 @@ function ensureAdmin(){
     console.log('Admin user created:', ADMIN_USER);
   }
 }
-ensureAdmin();
 
-// Ensure/reset a seed negocio account (works on Vercel where local db.json is not deployed).
-// Set SEED_NEGOCIO_USER / SEED_NEGOCIO_PASS in Vercel env to customize; defaults restore santiburgers.
+// Ensure a seed negocio account exists (do not overwrite password if already present).
 const SEED_NEGOCIO_USER = process.env.SEED_NEGOCIO_USER || 'santiburgers';
 const SEED_NEGOCIO_PASS = process.env.SEED_NEGOCIO_PASS || 'Santi2026!';
 
 function ensureSeedNegocio(){
   if(!SEED_NEGOCIO_USER || !SEED_NEGOCIO_PASS) return;
   db = readDB();
-  const { salt, hash } = hashPassword(SEED_NEGOCIO_PASS);
   let user = db.users.find(u => u.username === SEED_NEGOCIO_USER);
-  if(!user){
-    user = {
-      id: ++db.lastUserId,
-      username: SEED_NEGOCIO_USER,
-      salt,
-      hash,
-      role: 'negocio',
-      business: {
-        name: SEED_NEGOCIO_USER,
-        email: '',
-        phone: '',
-        address: '',
-        slug: SEED_NEGOCIO_USER.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || 'negocio'
-      }
-    };
-    db.users.push(user);
-    console.log('Seed negocio created:', SEED_NEGOCIO_USER);
-  } else {
-    user.salt = salt;
-    user.hash = hash;
-    user.role = 'negocio';
-    if(!user.business){
-      user.business = {
-        name: SEED_NEGOCIO_USER,
-        email: '',
-        phone: '',
-        address: '',
-        slug: SEED_NEGOCIO_USER.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || 'negocio'
-      };
+  if(user) return;
+  const { salt, hash } = hashPassword(SEED_NEGOCIO_PASS);
+  user = {
+    id: ++db.lastUserId,
+    username: SEED_NEGOCIO_USER,
+    salt,
+    hash,
+    role: 'negocio',
+    business: {
+      name: SEED_NEGOCIO_USER,
+      email: 'santiburgers@yopmail.com',
+      phone: '3022642595',
+      address: 'calle 52 B sur 62 A-15',
+      slug: SEED_NEGOCIO_USER.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || 'negocio'
     }
-    console.log('Seed negocio password reset:', SEED_NEGOCIO_USER);
-  }
+  };
+  db.users.push(user);
   writeDB(db);
+  console.log('Seed negocio created:', SEED_NEGOCIO_USER);
 }
-ensureSeedNegocio();
 
 // ensure existing businesses have slugs (migration)
 function ensureBusinessSlugs(){
@@ -261,7 +243,25 @@ function ensureBusinessSlugs(){
   });
   if(changed) writeDB(db);
 }
-ensureBusinessSlugs();
+
+// Connect Mongo (if configured), then seed users. Gate requests until ready.
+const readyPromise = (async ()=>{
+  const maybe = await initMongoIfConfigured();
+  if(maybe){ db = maybe; }
+  ensureAdmin();
+  ensureSeedNegocio();
+  ensureBusinessSlugs();
+})();
+
+app.use(async (req, res, next) => {
+  try {
+    await readyPromise;
+    next();
+  } catch (e) {
+    console.error('DB init failed:', e);
+    res.status(503).json({ error: 'Service initializing' });
+  }
+});
 
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
