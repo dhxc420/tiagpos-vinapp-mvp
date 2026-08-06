@@ -187,9 +187,8 @@ body.sidebar-open{overflow:hidden}
 .biz-banner.has-image img{display:block}
 .biz-banner.is-placeholder{
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, transparent), transparent 55%),
-    linear-gradient(225deg, color-mix(in srgb, var(--accent-hot) 18%, transparent), transparent 50%),
-    var(--bg-elev);
+    linear-gradient(180deg, rgba(12,18,16,0.2), rgba(12,18,16,0.55)),
+    url("https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1600&q=80") center/cover no-repeat;
 }
 .biz-header{
   display:flex;align-items:flex-start;gap:16px;margin-bottom:18px;flex-wrap:wrap;

@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;650;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
   <script>
-    (function(){try{var t=localStorage.getItem('tiagpos-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.setAttribute('data-theme','dark');else document.documentElement.setAttribute('data-theme','light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();
+    (function(){try{var t=localStorage.getItem('tiagpos-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);else document.documentElement.setAttribute('data-theme','light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();
   </script>
   <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/landing.css" />
@@ -38,16 +38,41 @@
   </header>
 
   <section class="lp-hero" id="top">
-    <div class="lp-hero-media" data-parallax="0.28"></div>
-    <div class="lp-hero-orb a" data-parallax="-0.18"></div>
-    <div class="lp-hero-orb b" data-parallax="0.4"></div>
-    <div class="lp-hero-copy">
-      <div class="lp-kicker"><i></i> Hecho para vender por WhatsApp</div>
-      <h1 class="lp-hero-brand">tiag<em>POS</em></h1>
-      <p class="lp-hero-lead">Menú digital, pedidos al instante y confirmación de pago — sin fricción, sin app extra para tu cliente.</p>
-      <div class="lp-hero-actions">
-        <a class="lp-btn lp-btn-primary" href="/admin.html">Crear mi negocio</a>
-        <a class="lp-btn lp-btn-ghost" href="/b/santiburgers">Probar menú demo</a>
+    <div class="lp-hero-grid">
+      <div class="lp-hero-copy">
+        <div class="lp-kicker"><i></i> POS para restaurantes</div>
+        <h1 class="lp-hero-brand">tiag<em>POS</em></h1>
+        <p class="lp-hero-lead">El sistema de pedidos por WhatsApp más fácil de adaptar: menú digital, confirmación de pagos y panel de operación en un solo lugar.</p>
+        <div class="lp-hero-actions">
+          <a class="lp-btn lp-btn-primary" href="/admin.html">Agendar una demo</a>
+          <a class="lp-btn lp-btn-ghost" href="/b/santiburgers">Ver menú demo</a>
+        </div>
+      </div>
+
+      <div class="lp-hero-stage" aria-hidden="true">
+        <div class="lp-arc"></div>
+        <div class="lp-device lp-device-panel">
+          <div class="lp-device-bar">
+            <span></span><span></span><span></span>
+            <em>Panel · santiburgers</em>
+          </div>
+          <div class="lp-panel-body">
+            <div class="lp-panel-row"><b>#42</b><span>Ana · $28.000</span><i class="ok">paid</i></div>
+            <div class="lp-panel-row"><b>#41</b><span>Carlos · $45.500</span><i>pending</i></div>
+            <div class="lp-panel-row"><b>#40</b><span>Laura · $18.000</span><i class="ok">paid</i></div>
+            <div class="lp-panel-row"><b>#39</b><span>Diego · $62.000</span><i>pending</i></div>
+          </div>
+        </div>
+        <div class="lp-device lp-device-phone">
+          <div class="lp-phone-notch"></div>
+          <div class="lp-phone-screen">
+            <div class="lp-phone-hero"></div>
+            <div class="lp-phone-brand">santiburgers</div>
+            <div class="lp-phone-item"><span>Classic Burger</span><strong>$18.000</strong></div>
+            <div class="lp-phone-item"><span>Papas cheddar</span><strong>$9.500</strong></div>
+            <div class="lp-phone-cta">Pedir por WhatsApp</div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -78,8 +103,18 @@
 
   <section class="lp-section" id="modulos">
     <div class="lp-strip">
-      <div class="lp-strip-visual">
-        <img data-parallax="0.12" src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1400&q=80" alt="Interior de restaurante" />
+      <div class="lp-strip-visual lp-strip-ui">
+        <div class="lp-ui-card">
+          <div class="lp-ui-title">Operación del día</div>
+          <div class="lp-ui-metrics">
+            <div><span>Pedidos</span><strong>24</strong></div>
+            <div><span>Ventas</span><strong>$1.2M</strong></div>
+            <div><span>Pendientes</span><strong>3</strong></div>
+          </div>
+          <div class="lp-ui-line"></div>
+          <div class="lp-ui-line short"></div>
+          <div class="lp-ui-line"></div>
+        </div>
       </div>
       <div class="lp-strip-panel">
         <h3>Operación real, no solo landing</h3>
@@ -87,9 +122,9 @@
         <ul class="lp-list">
           <li>Menú digital por negocio con slug público</li>
           <li>Pedidos + carrito + WhatsApp a la tienda</li>
-          <li>Panel admin: pedidos, inventario y caja</li>
+          <li>Panel admin: pedidos, inventario, caja y reportes</li>
           <li>Checkout con comprobante y token seguro</li>
-          <li>Tema claro / oscuro en toda la app</li>
+          <li>Banner y marca del negocio en la página pública</li>
         </ul>
       </div>
     </div>
@@ -131,7 +166,7 @@
         <p class="desc">Cuando ya operas a ritmo alto.</p>
         <ul>
           <li>Todo Go</li>
-          <li>Reportes</li>
+          <li>Reportes Excel</li>
           <li>Usuarios ilimitados*</li>
           <li>Soporte prioritario</li>
         </ul>
@@ -142,10 +177,10 @@
 
   <section class="lp-cta" id="demo">
     <h2>Pruébalo con un menú real</h2>
-    <p>Entra a la demo de santiburgers, arma un pedido y mira cómo llega el mensaje a WhatsApp.</p>
+    <p>Entra a la demo de santiburgers: ahí sí verás el banner y la comida del negocio.</p>
     <div class="lp-hero-actions" style="justify-content:center">
       <a class="lp-btn lp-btn-primary" href="/b/santiburgers">Abrir demo</a>
-      <a class="lp-btn lp-btn-ghost" href="/admin.html" style="color:var(--ink);border-color:var(--line);background:transparent">Ir al panel</a>
+      <a class="lp-btn lp-btn-ghost" href="/admin.html">Ir al panel</a>
     </div>
   </section>
 
@@ -160,9 +195,7 @@
       var nav = document.getElementById('nav');
       var navToggle = document.getElementById('navToggle');
       var navLinks = document.getElementById('navLinks');
-      var layers = [].slice.call(document.querySelectorAll('[data-parallax]'));
       var steps = [].slice.call(document.querySelectorAll('.lp-flow article'));
-      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
       function setNavOpen(open){
         if(!nav || !navToggle) return;
@@ -187,13 +220,7 @@
 
       function onScroll(){
         var y = window.scrollY || 0;
-        if(nav) nav.classList.toggle('is-solid', y > 24);
-        if(!reduce){
-          layers.forEach(function(el){
-            var speed = parseFloat(el.getAttribute('data-parallax') || '0');
-            el.style.transform = 'translate3d(0,' + (y * speed) + 'px,0) scale(' + (el.tagName === 'IMG' ? 1.05 : (el.classList.contains('lp-hero-media') ? 1.08 : 1)) + ')';
-          });
-        }
+        if(nav) nav.classList.toggle('is-solid', y > 12);
       }
 
       if('IntersectionObserver' in window){
