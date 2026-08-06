@@ -39,8 +39,8 @@
               <div style="margin-top:6px"><a id="publicLink" href="#" target="_blank" class="small" style="color:var(--muted);text-decoration:none">Ver página pública</a></div>
               <div id="openStatusBox" class="open-toggle" style="display:none">
                 <div>
-                  <div style="font-weight:800;font-size:.9rem">Estado del negocio</div>
-                  <div id="openStatusLabel" class="small">Disponible</div>
+                  <div class="open-toggle-title">Estado del negocio</div>
+                  <div id="openStatusLabel" class="small open-toggle-hint">Disponible</div>
                 </div>
                 <button id="openStatusBtn" type="button" class="is-open">Disponible</button>
               </div>
@@ -640,8 +640,8 @@
       }
       box.style.display = 'flex';
       const open = businessIsOpen(user.business);
-      label.textContent = open ? 'Los clientes pueden pedir ahora' : 'Los clientes ven “No disponible”';
-      btn.textContent = open ? 'Disponible' : 'No disponible';
+      label.textContent = open ? 'Los clientes pueden pedir ahora' : 'Cerrado: no reciben pedidos';
+      btn.textContent = open ? 'Marcar como no disponible' : 'Marcar como disponible';
       btn.className = open ? 'is-open' : 'is-closed';
     }
 
