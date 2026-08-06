@@ -567,5 +567,8 @@ app.post('/api/orders/:id/proof', (req,res)=>{
   res.json(db.orders[orderIdx]);
 });
 
-const port = process.env.PORT || 4000;
-app.listen(port, ()=>console.log('Backend (file-db) listening on',port));
+module.exports = app;
+if(require.main === module){
+  const port = process.env.PORT || 4000;
+  app.listen(port, ()=>console.log('Backend (file-db) listening on',port));
+}
