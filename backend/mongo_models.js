@@ -14,7 +14,11 @@ const menuSchema = new mongoose.Schema({
   legacyOwnerId: Number,
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true, sparse: true },
   name: String,
+  description: String,
   price: Number,
+  stock: Number,
+  category: String,
+  unit: String,
   available: Boolean
 }, { timestamps: true });
 

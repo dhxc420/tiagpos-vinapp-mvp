@@ -58,7 +58,17 @@ function emptyDb() {
 
 function mapMongoToDb(users, menus, orders, inventories, cash) {
   const mapped = {
-    menus: (menus || []).map(m => ({ id: m.legacyId || 0, ownerId: m.legacyOwnerId || null, name: m.name, price: m.price, available: m.available })),
+    menus: (menus || []).map(m => ({
+      id: m.legacyId || 0,
+      ownerId: m.legacyOwnerId || null,
+      name: m.name,
+      description: m.description || '',
+      price: m.price,
+      stock: typeof m.stock === 'number' ? m.stock : null,
+      category: m.category || '',
+      unit: m.unit || '',
+      available: m.available
+    })),
     orders: (orders || []).map(o => ({
       id: o.legacyId || 0,
       ownerId: o.legacyOwnerId || null,
@@ -180,7 +190,19 @@ async function writeDB(current) {
   for (const m of current.menus || []) {
     ops.push(mongoModels.Menu.updateOne(
       { legacyId: m.id },
-      { $set: { legacyId: m.id, legacyOwnerId: m.ownerId || null, name: m.name, price: m.price, available: !!m.available } },
+      {
+        $set: {
+          legacyId: m.id,
+          legacyOwnerId: m.ownerId || null,
+          name: m.name,
+          description: m.description || '',
+          price: m.price,
+          stock: typeof m.stock === 'number' ? m.stock : null,
+          category: m.category || '',
+          unit: m.unit || '',
+          available: !!m.available
+        }
+      },
       { upsert: true }
     ));
   }
@@ -298,6 +320,7 @@ async function ensureSeedNegocio() {
         email: 'santiburgers@yopmail.com',
         phone: '3022642595',
         address: 'calle 52 B sur 62 A-15',
+        store_kind: 'restaurant',
         slug: SEED_NEGOCIO_USER.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'negocio'
       }
     };
@@ -311,6 +334,78 @@ async function ensureSeedNegocio() {
     await writeDB(db);
     console.log('Seed negocio password reset:', SEED_NEGOCIO_USER);
   }
+}
+
+async function ensureMercaMono() {
+  const USER = process.env.MERCA_USER || 'mercamono';
+  const PASS = process.env.MERCA_PASS || 'Merca2026!';
+  db = readDB();
+  const { salt, hash } = hashPassword(PASS);
+  const categories = ['Carnicería', 'Legumbrería', 'Comestibles'];
+  let user = db.users.find(u => u.username === USER);
+  let changed = false;
+  if (!user) {
+    user = {
+      id: ++db.lastUserId,
+      username: USER,
+      salt,
+      hash,
+      role: 'negocio',
+      business: {
+        name: 'Merca Mono',
+        email: 'mercamono@yopmail.com',
+        phone: '3001234567',
+        address: 'Barrio Centro',
+        store_kind: 'market',
+        categories,
+        is_open: true,
+        slug: 'mercamono'
+      }
+    };
+    db.users.push(user);
+    changed = true;
+    console.log('Merca Mono user created:', USER);
+  } else {
+    user.business = user.business || {};
+    user.business.name = user.business.name || 'Merca Mono';
+    user.business.store_kind = 'market';
+    user.business.categories = categories;
+    if (!user.business.slug) user.business.slug = 'mercamono';
+    if (typeof user.business.is_open === 'undefined') user.business.is_open = true;
+    changed = true;
+  }
+
+  const owned = db.menus.filter(m => m.ownerId === user.id);
+  if (!owned.length) {
+    const seedProducts = [
+      { name: 'Carne de res molida', description: 'Paquete fresco 500g', price: 12500, stock: 40, category: 'Carnicería', unit: 'paq' },
+      { name: 'Pollo entero', description: 'Pollo fresco aprox 1.2kg', price: 18000, stock: 25, category: 'Carnicería', unit: 'und' },
+      { name: 'Costilla de cerdo', description: 'Por kilo', price: 16000, stock: 30, category: 'Carnicería', unit: 'kg' },
+      { name: 'Tomate chonto', description: 'Fresco de la huerta', price: 3500, stock: 80, category: 'Legumbrería', unit: 'lb' },
+      { name: 'Cebolla cabezona', description: 'Blanca', price: 2800, stock: 70, category: 'Legumbrería', unit: 'lb' },
+      { name: 'Plátano verde', description: 'Unidad', price: 800, stock: 120, category: 'Legumbrería', unit: 'und' },
+      { name: 'Arroz 1kg', description: 'Arroz blanco', price: 4500, stock: 60, category: 'Comestibles', unit: 'paq' },
+      { name: 'Aceite 1L', description: 'Aceite vegetal', price: 9800, stock: 45, category: 'Comestibles', unit: 'und' },
+      { name: 'Huevos x12', description: 'Cartón de 12', price: 7200, stock: 50, category: 'Comestibles', unit: 'cartón' }
+    ];
+    for (const p of seedProducts) {
+      db.menus.push({
+        id: ++db.lastMenuId,
+        ownerId: user.id,
+        name: p.name,
+        description: p.description,
+        price: p.price,
+        stock: p.stock,
+        category: p.category,
+        unit: p.unit,
+        available: true
+      });
+    }
+    changed = true;
+    console.log('Merca Mono catalog seeded');
+  }
+
+  if (changed) await writeDB(db);
 }
 
 async function ensureBusinessSlugs() {
@@ -336,6 +431,7 @@ const readyPromise = (async () => {
   else db = readFileDb();
   await ensureAdmin();
   await ensureSeedNegocio();
+  await ensureMercaMono();
   await ensureBusinessSlugs();
 })();
 
@@ -486,7 +582,11 @@ app.post('/api/register', async (req, res) => {
       email: business.email || '',
       phone: business.phone || '',
       address: business.address || '',
-      is_open: true
+      is_open: true,
+      store_kind: ['market', 'restaurant'].includes(business.store_kind) ? business.store_kind : 'restaurant',
+      categories: Array.isArray(business.categories)
+        ? business.categories.map(c => String(c).slice(0, 60)).filter(Boolean).slice(0, 20)
+        : []
     };
     const slugBase = (business.name || username || 'biz').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     let slug = slugBase || (`biz-${user.id}`);
@@ -520,6 +620,12 @@ app.put('/api/me', requireAuth, async (req, res) => {
   ['name', 'email', 'phone', 'address', 'logo', 'banner'].forEach(k => {
     if (typeof business[k] !== 'undefined') user.business[k] = business[k];
   });
+  if (typeof business.store_kind !== 'undefined') {
+    user.business.store_kind = ['market', 'restaurant'].includes(business.store_kind) ? business.store_kind : 'restaurant';
+  }
+  if (Array.isArray(business.categories)) {
+    user.business.categories = business.categories.map(c => String(c).slice(0, 60)).filter(Boolean).slice(0, 20);
+  }
   if (typeof business.is_open !== 'undefined') user.business.is_open = !!business.is_open;
   await writeDB(db);
   res.json({ id: user.id, username: user.username, role: user.role, business: user.business });
@@ -600,16 +706,21 @@ app.get('/api/menu/my', requireNegocio, (req, res) => {
 });
 
 app.post('/api/menu', requireNegocio, async (req, res) => {
-  const { name, price, available } = req.body || {};
+  const { name, price, available, description, category, stock, unit } = req.body || {};
   if (!name) return res.status(400).json({ error: 'name required' });
   db = readDB();
   const item = {
     id: ++db.lastMenuId,
     ownerId: req.user.id,
     name: String(name).slice(0, 120),
+    description: description != null ? String(description).slice(0, 400) : '',
     price: Number(price || 0),
+    category: category != null ? String(category).slice(0, 60) : '',
+    unit: unit != null ? String(unit).slice(0, 30) : '',
+    stock: (stock === '' || stock == null) ? null : Math.max(0, Number(stock)),
     available: typeof available === 'undefined' ? true : !!available
   };
+  if (Number.isNaN(item.stock)) item.stock = null;
   db.menus.push(item);
   await writeDB(db);
   res.json(item);
@@ -621,7 +732,19 @@ app.put('/api/menu/:id', requireNegocio, async (req, res) => {
   const idx = db.menus.findIndex(m => m.id === id && m.ownerId === req.user.id);
   if (idx === -1) return res.status(404).json({ error: 'Menu item not found' });
   const body = req.body || {};
-  ['name', 'price', 'available'].forEach(k => { if (typeof body[k] !== 'undefined') db.menus[idx][k] = body[k]; });
+  ['name', 'price', 'available', 'description', 'category', 'unit'].forEach(k => {
+    if (typeof body[k] !== 'undefined') db.menus[idx][k] = body[k];
+  });
+  if (typeof body.stock !== 'undefined') {
+    db.menus[idx].stock = (body.stock === '' || body.stock == null) ? null : Math.max(0, Number(body.stock));
+    if (Number.isNaN(db.menus[idx].stock)) db.menus[idx].stock = null;
+  }
+  if (typeof body.name === 'string') db.menus[idx].name = body.name.slice(0, 120);
+  if (typeof body.description === 'string') db.menus[idx].description = body.description.slice(0, 400);
+  if (typeof body.category === 'string') db.menus[idx].category = body.category.slice(0, 60);
+  if (typeof body.unit === 'string') db.menus[idx].unit = body.unit.slice(0, 30);
+  if (typeof body.price !== 'undefined') db.menus[idx].price = Number(body.price || 0);
+  if (typeof body.available !== 'undefined') db.menus[idx].available = !!body.available;
   await writeDB(db);
   res.json(db.menus[idx]);
 });
@@ -645,11 +768,16 @@ app.get('/api/b/:slug', (req, res) => {
   if (!user) return res.status(404).json({ error: 'Business not found' });
   const b = Object.assign({}, user.business);
   if (typeof b.is_open === 'undefined') b.is_open = true;
+  if (!b.store_kind) b.store_kind = 'restaurant';
   res.json({ username: user.username, business: b, slug: user.business.slug });
 });
 
 app.get('/b/:slug', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/business.html'));
+  db = readDB();
+  const user = db.users.find(u => u.business && u.business.slug === req.params.slug);
+  const kind = user && user.business && user.business.store_kind;
+  const file = kind === 'market' ? 'market.html' : 'business.html';
+  res.sendFile(path.join(__dirname, '../frontend', file));
 });
 
 app.post('/api/orders', async (req, res) => {
@@ -679,12 +807,28 @@ app.post('/api/orders', async (req, res) => {
     }
     if (!menuItem) return res.status(400).json({ error: `Invalid menu item: ${raw.id}` });
     if (!menuItem.available) return res.status(400).json({ error: `Item unavailable: ${menuItem.name}` });
-    pricedItems.push({ id: menuItem.id, name: menuItem.name, price: Number(menuItem.price), qty });
+    if (typeof menuItem.stock === 'number' && menuItem.stock < qty) {
+      return res.status(400).json({ error: `Stock insuficiente: ${menuItem.name} (disp. ${menuItem.stock})` });
+    }
+    pricedItems.push({
+      id: menuItem.id,
+      name: menuItem.name,
+      price: Number(menuItem.price),
+      qty,
+      category: menuItem.category || ''
+    });
   }
 
   const total = pricedItems.reduce((s, i) => s + i.price * i.qty, 0);
-  const order = {
-    id: ++db.lastOrderId,
+  // Decrement stock when tracked
+  for (const line of pricedItems) {
+    const idx = db.menus.findIndex(m => m.id === line.id);
+    if (idx !== -1 && typeof db.menus[idx].stock === 'number') {
+      db.menus[idx].stock = Math.max(0, db.menus[idx].stock - line.qty);
+      if (db.menus[idx].stock === 0) db.menus[idx].available = false;
+    }
+  }
+  const order = {    id: ++db.lastOrderId,
     ownerId,
     customer_name: String(customer_name || 'Anon').slice(0, 80),
     customer_phone: customer_phone ? String(customer_phone).slice(0, 30) : null,

@@ -244,6 +244,62 @@ body.sidebar-open{overflow:hidden}
   .biz-banner{height:150px;border-radius:14px;margin-bottom:12px}
   .report-summary{grid-template-columns:1fr}
 }
+
+/* Market / mini-super public catalog */
+.market-layout{
+  display:grid;grid-template-columns:minmax(0,1.6fr) minmax(260px,0.9fr);gap:14px;align-items:start;
+}
+.market-toolbar{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;
+}
+.market-toolbar input[type=search]{flex:1;min-width:160px;max-width:280px}
+.market-cats{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.market-cat{
+  border:1px solid var(--line);background:var(--bg);color:var(--ink);
+  border-radius:999px;padding:8px 14px;font-weight:700;font-size:.88rem;
+}
+.market-cat.is-active{background:var(--accent);color:#fff;border-color:transparent}
+html[data-theme="dark"] .market-cat.is-active{color:#04140c}
+.market-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.market-card{
+  padding:14px;border-radius:14px;border:1px solid var(--line);
+  background:color-mix(in srgb, var(--bg) 40%, var(--bg-elev));
+  display:flex;flex-direction:column;gap:8px;min-width:0;
+}
+.market-card-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.market-card-top strong{font-size:1rem;line-height:1.25}
+.market-chip{
+  flex:0 0 auto;font-size:.7rem;font-weight:800;padding:4px 8px;border-radius:999px;
+  background:var(--accent-soft);color:var(--accent);
+}
+.market-desc{margin:0;line-height:1.4}
+.market-card-meta{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.market-qty-row{display:flex;gap:8px;align-items:flex-end;margin-top:auto}
+.market-qty-row label{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+.market-qty-row .qty-input{width:100%;max-width:100px}
+.market-cart{position:sticky;top:12px}
+.market-cart-list{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.market-cart-list li{
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  padding:8px 0;border-bottom:1px dashed var(--line);font-size:.92rem;
+}
+.menu-form-grid{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;align-items:end;
+}
+.menu-form-grid label{display:flex;flex-direction:column;gap:4px;font-size:.82rem;font-weight:700;color:var(--muted)}
+.menu-form-grid .span-2{grid-column:span 2}
+.menu-form-grid .span-3{grid-column:1 / -1}
+@media (max-width:900px){
+  .market-layout{grid-template-columns:1fr}
+  .market-cart{position:static}
+  .market-grid{grid-template-columns:1fr}
+  .menu-form-grid{grid-template-columns:1fr 1fr}
+  .menu-form-grid .span-2,.menu-form-grid .span-3{grid-column:1 / -1}
+}
+@media (max-width:520px){
+  .menu-form-grid{grid-template-columns:1fr}
+}
+
 .open-toggle{
   display:flex;flex-direction:column;align-items:stretch;gap:10px;
   padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg-elev);margin-top:10px;

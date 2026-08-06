@@ -174,6 +174,13 @@
         <div class="form-row" style="margin-bottom:8px">
           <input id="editBizAddress" placeholder="Dirección" />
         </div>
+        <div class="form-row" style="margin-bottom:8px">
+          <label class="small" style="font-weight:700;display:block;margin-bottom:4px">Tipo de negocio</label>
+          <select id="editStoreKind" style="width:100%">
+            <option value="restaurant">Restaurante / comida</option>
+            <option value="market">Mini súper / mercado</option>
+          </select>
+        </div>
         <label style="display:flex;align-items:center;gap:8px;margin:10px 0;font-weight:700">
           <input id="editBizOpen" type="checkbox" checked />
           Negocio disponible para pedidos
@@ -516,6 +523,7 @@
         document.getElementById('editBizPhone').value = user.business.phone || '';
         document.getElementById('editBizAddress').value = user.business.address || '';
         document.getElementById('editBizOpen').checked = (typeof user.business.is_open === 'undefined') ? true : !!user.business.is_open;
+        document.getElementById('editStoreKind').value = user.business.store_kind === 'market' ? 'market' : 'restaurant';
         if(user.business.logo){ logoPrev.src = user.business.logo; logoPrev.classList.add('is-visible'); }
         else { logoPrev.removeAttribute('src'); logoPrev.classList.remove('is-visible'); }
         if(user.business.banner){ bannerPrev.src = user.business.banner; bannerPrev.classList.add('is-visible'); bannerClear.style.display = 'inline-block'; }
@@ -526,6 +534,7 @@
         document.getElementById('editBizPhone').value = '';
         document.getElementById('editBizAddress').value = '';
         document.getElementById('editBizOpen').checked = true;
+        document.getElementById('editStoreKind').value = 'restaurant';
         logoPrev.removeAttribute('src'); logoPrev.classList.remove('is-visible');
         bannerPrev.removeAttribute('src'); bannerPrev.classList.remove('is-visible');
         bannerClear.style.display = 'none';
@@ -584,6 +593,7 @@
       const phone = document.getElementById('editBizPhone').value.trim();
       const address = document.getElementById('editBizAddress').value.trim();
       const is_open = document.getElementById('editBizOpen').checked;
+      const store_kind = document.getElementById('editStoreKind').value;
       if(!name){ showInlineMessage('editMsg','Nombre del negocio requerido','error'); return }
       if(email && !/^\S+@\S+\.\S+$/.test(email)){ showInlineMessage('editMsg','Correo inválido','error'); return }
       if(phone && !/^[0-9+]{7,20}$/.test(phone)){ showInlineMessage('editMsg','Teléfono inválido','error'); return }
@@ -604,7 +614,8 @@
           }
           const jr = await r.json(); bannerUrl = jr.url;
         }
-        const payload = { business: { name, email, phone, address, is_open } };
+        const payload = { business: { name, email, phone, address, is_open, store_kind } };
+        if(store_kind === 'market') payload.business.categories = ['Carnicería','Legumbrería','Comestibles'];
         if(logoUrl) payload.business.logo = logoUrl;
         if(bannerUrl) payload.business.banner = bannerUrl;
         else if(_clearBanner) payload.business.banner = '';
@@ -995,17 +1006,43 @@
       } else if(section === 'menu'){
         if(detail){
           detail.style.display='block';
+          const user = getUser();
+          const isMarket = user && user.business && user.business.store_kind === 'market';
+          const cats = (user && user.business && Array.isArray(user.business.categories) && user.business.categories.length)
+            ? user.business.categories
+            : (isMarket ? ['Carnicería','Legumbrería','Comestibles'] : ['']);
           detail.innerHTML = `
-            <h3>Menú</h3>
-            <div class="small">Gestiona los platos de tu negocio</div>
-            <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
-              <input id="menuName" placeholder="Nombre del producto" />
-              <input id="menuPrice" placeholder="Precio" style="width:120px" />
-              <label style="display:flex;align-items:center;gap:6px"><input id="menuAvail" type="checkbox" /> Disponible</label>
-              <button id="menuAdd" class="btn">Agregar</button>
+            <h3>${isMarket ? 'Productos' : 'Menú'}</h3>
+            <div class="small">${isMarket ? 'Catálogo del mini súper por categoría, stock y costo' : 'Gestiona los platos de tu negocio'}</div>
+            <div class="menu-form-grid">
+              <label class="span-2">Nombre
+                <input id="menuName" placeholder="Nombre del producto" />
+              </label>
+              <label>Costo / precio
+                <input id="menuPrice" type="number" min="0" step="100" placeholder="0" />
+              </label>
+              <label class="span-3">Descripción
+                <input id="menuDesc" placeholder="Descripción corta" />
+              </label>
+              <label>Categoría
+                <select id="menuCat">
+                  ${cats.map(c => `<option value="${esc(c)}">${esc(c || 'Sin categoría')}</option>`).join('')}
+                  ${isMarket ? '' : '<option value="">General</option>'}
+                </select>
+              </label>
+              <label>Cantidad (stock)
+                <input id="menuStock" type="number" min="0" step="1" placeholder="Opcional" />
+              </label>
+              <label>Unidad
+                <input id="menuUnit" placeholder="kg, lb, und..." />
+              </label>
+              <label style="flex-direction:row;align-items:center;gap:8px;margin-top:18px">
+                <input id="menuAvail" type="checkbox" checked /> Disponible
+              </label>
+              <div class="span-3"><button id="menuAdd" class="btn" type="button">Agregar</button></div>
             </div>
             <div id="menuMsg" class="small inline-msg" style="margin-top:8px;display:none"></div>
-            <div id="menuList" style="margin-top:12px">Cargando...</div>
+            <div id="menuList" class="table-scroll" style="margin-top:12px">Cargando...</div>
           `;
           const menuListEl = document.getElementById('menuList');
           async function loadMenuItems(){
@@ -1013,16 +1050,35 @@
               const res = await apiFetch('/api/menu/my'); if(!res.ok){ menuListEl.innerHTML='No autorizado'; return }
               const items = await res.json();
               if(items.length===0){ menuListEl.innerHTML = '<div>No hay productos</div>'; return }
-              menuListEl.innerHTML = `<table style="width:100%;border-collapse:collapse"><thead><tr><th>Nombre</th><th>Precio</th><th>Disponible</th><th>Acciones</th></tr></thead><tbody>${items.map(i=>`<tr data-id="${i.id}"><td>${i.name}</td><td>${i.price}</td><td>${i.available? 'Sí':'No'}</td><td><button class="btn" data-action="edit">Editar</button> <button class="btn btn-ghost" data-action="del">Eliminar</button></td></tr>`).join('')}</tbody></table>`;
+              menuListEl.innerHTML = `<table style="width:100%;border-collapse:collapse"><thead><tr>
+                <th>Nombre</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Disp.</th><th>Acciones</th>
+              </tr></thead><tbody>${items.map(i=>`<tr data-id="${i.id}">
+                <td><strong>${esc(i.name)}</strong>${i.description?`<div class="small">${esc(i.description)}</div>`:''}</td>
+                <td>${esc(i.category||'—')}</td>
+                <td>${fmtMoney(i.price)}${i.unit?` <span class="small">/${esc(i.unit)}</span>`:''}</td>
+                <td>${i.stock==null?'—':esc(i.stock)}</td>
+                <td>${i.available? 'Sí':'No'}</td>
+                <td><button class="btn" data-action="edit">Editar</button> <button class="btn btn-ghost" data-action="del">Eliminar</button></td>
+              </tr>`).join('')}</tbody></table>`;
               menuListEl.querySelectorAll('button[data-action]').forEach(b=> b.addEventListener('click', async (e)=>{
                 const tr = e.target.closest('tr'); const id = tr.getAttribute('data-id'); const action = e.target.getAttribute('data-action');
+                const item = items.find(x => String(x.id) === String(id));
                 if(action === 'del'){
                   if(!confirm('Eliminar este producto?')) return; const r = await apiFetch('/api/menu/'+id,{ method:'DELETE' }); if(!r.ok){ alert('Error'); return } loadMenuItems();
-                } else if(action === 'edit'){
-                  const name = prompt('Nuevo nombre', tr.children[0].textContent) || tr.children[0].textContent;
-                  const price = prompt('Precio', tr.children[1].textContent) || tr.children[1].textContent;
+                } else if(action === 'edit' && item){
+                  const name = prompt('Nombre', item.name) || item.name;
+                  const description = prompt('Descripción', item.description || '') || '';
+                  const price = prompt('Precio / costo', item.price) || item.price;
+                  const category = prompt('Categoría', item.category || '') || '';
+                  const stockRaw = prompt('Cantidad / stock (vacío = sin control)', item.stock == null ? '' : item.stock);
+                  const unit = prompt('Unidad', item.unit || '') || '';
                   const avail = confirm('¿Disponible?');
-                  const r = await apiFetch('/api/menu/'+id, { method:'PUT', headers:{'content-type':'application/json'}, body: JSON.stringify({ name, price: Number(price||0), available: avail }) }); if(!r.ok){ alert('Error'); return } loadMenuItems();
+                  const payload = {
+                    name, description, price: Number(price||0), category, unit, available: avail,
+                    stock: (stockRaw === '' || stockRaw == null) ? null : Number(stockRaw)
+                  };
+                  const r = await apiFetch('/api/menu/'+id, { method:'PUT', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
+                  if(!r.ok){ alert('Error'); return } loadMenuItems();
                 }
               }));
             }catch(err){ menuListEl.innerHTML='Error cargando menú'; }
@@ -1031,12 +1087,22 @@
           document.getElementById('menuAdd').addEventListener('click', async ()=>{
             const name = document.getElementById('menuName').value.trim();
             const price = Number(document.getElementById('menuPrice').value||0);
+            const description = document.getElementById('menuDesc').value.trim();
+            const category = document.getElementById('menuCat').value;
+            const unit = document.getElementById('menuUnit').value.trim();
+            const stockRaw = document.getElementById('menuStock').value;
             const avail = document.getElementById('menuAvail').checked;
             const msgEl = document.getElementById('menuMsg'); msgEl.style.display='none';
             if(!name){ msgEl.textContent='Nombre requerido'; msgEl.className='small inline-msg error'; msgEl.style.display='block'; return }
-            const r = await apiFetch('/api/menu', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ name, price, available: avail }) });
+            const payload = {
+              name, price, description, category, unit, available: avail,
+              stock: stockRaw === '' ? null : Number(stockRaw)
+            };
+            const r = await apiFetch('/api/menu', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
             if(!r.ok){ const t = await r.json(); msgEl.textContent = t.error || 'Error'; msgEl.className='small inline-msg error'; msgEl.style.display='block'; return }
-            document.getElementById('menuName').value=''; document.getElementById('menuPrice').value=''; document.getElementById('menuAvail').checked=false;
+            document.getElementById('menuName').value=''; document.getElementById('menuPrice').value='';
+            document.getElementById('menuDesc').value=''; document.getElementById('menuStock').value='';
+            document.getElementById('menuUnit').value=''; document.getElementById('menuAvail').checked=true;
             msgEl.textContent='Agregado'; msgEl.className='small inline-msg success'; msgEl.style.display='block';
             loadMenuItems();
           });
