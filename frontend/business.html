@@ -64,7 +64,8 @@
 
     async function loadMenu(){
       try{
-        const res = await fetch('/api/menu');
+        const res = await fetch('/api/menu?ownerSlug=' + encodeURIComponent(slug));
+        if(!res.ok){ document.getElementById('menuList').innerText = 'Error cargando menú'; return }
         MENU = await res.json();
         renderMenu();
       }catch(e){ document.getElementById('menuList').innerText = 'Error cargando menú'; }
