@@ -99,6 +99,13 @@ html:not([data-theme="dark"]) .btn-primary{color:#fff}
   background:var(--accent-soft);color:var(--accent);font-weight:700;border:1px solid var(--line)
 }
 .btn.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+.btn.btn-primary,
+button.btn.btn-primary{
+  background:var(--accent);color:#fff;border-color:transparent;
+  box-shadow:0 8px 20px rgba(15,122,74,0.22);
+}
+html[data-theme="dark"] .btn.btn-primary,
+html[data-theme="dark"] button.btn.btn-primary{color:#04140c}
 .btn:disabled{opacity:0.6;cursor:not-allowed}
 
 .app-card{background:var(--bg-elev);padding:16px;border-radius:12px;border:1px solid var(--line)}
