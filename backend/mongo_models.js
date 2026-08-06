@@ -1,0 +1,60 @@
+const mongoose = require('mongoose');
+
+const userSchema = new mongoose.Schema({
+  legacyId: { type: Number, index: true },
+  username: { type: String, unique: true, required: true },
+  role: String,
+  salt: String,
+  hash: String,
+  business: Object
+}, { timestamps: true });
+
+const menuSchema = new mongoose.Schema({
+  legacyId: Number,
+  legacyOwnerId: Number,
+  ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true, sparse: true },
+  name: String,
+  price: Number,
+  available: Boolean
+}, { timestamps: true });
+
+const orderSchema = new mongoose.Schema({
+  legacyId: Number,
+  legacyOwnerId: Number,
+  ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true, sparse: true },
+  customer_name: String,
+  customer_phone: String,
+  items: Array,
+  total: Number,
+  status: String,
+  proof_url: String,
+  created_at: Date,
+  paid_at: Date
+}, { timestamps: true });
+
+const invSchema = new mongoose.Schema({
+  legacyId: Number,
+  legacyOwnerId: Number,
+  ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+  name: String,
+  qty: Number,
+  unit: String
+}, { timestamps: true });
+
+const cashSchema = new mongoose.Schema({
+  legacyId: Number,
+  legacyOwnerId: Number,
+  ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+  type: String,
+  amount: Number,
+  note: String,
+  created_at: Date
+}, { timestamps: true });
+
+const User = mongoose.models.User || mongoose.model('User', userSchema);
+const Menu = mongoose.models.Menu || mongoose.model('Menu', menuSchema);
+const Order = mongoose.models.Order || mongoose.model('Order', orderSchema);
+const Inventory = mongoose.models.Inventory || mongoose.model('Inventory', invSchema);
+const Cash = mongoose.models.Cash || mongoose.model('Cash', cashSchema);
+
+module.exports = { mongoose, User, Menu, Order, Inventory, Cash };
