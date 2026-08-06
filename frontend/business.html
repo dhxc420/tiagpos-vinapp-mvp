@@ -30,10 +30,16 @@
       <div class="card" id="cartCard" style="margin-top:12px">
         <h3>Carrito</h3>
         <div id="cartItems">No hay items en el carrito</div>
+        <div id="checkoutFields" style="display:none;margin-top:12px">
+          <label class="small" for="custName">Tu nombre</label>
+          <input id="custName" placeholder="Nombre" style="width:100%;margin:4px 0 8px;padding:8px;border:1px solid #ddd;border-radius:8px" />
+          <label class="small" for="custPhone">Tu WhatsApp (opcional)</label>
+          <input id="custPhone" placeholder="Ej. 3001234567" style="width:100%;margin:4px 0 8px;padding:8px;border:1px solid #ddd;border-radius:8px" />
+        </div>
         <div style="margin-top:12px">
           <div id="cartTotal" style="font-weight:800"></div>
           <div id="orderMsg" class="small inline-msg" style="display:none;margin-top:8px"></div>
-          <button id="waBtn" class="btn btn-primary" style="margin-top:8px;display:none">Enviar por WhatsApp</button>
+          <button id="waBtn" class="btn btn-primary" style="margin-top:8px;display:none" type="button">Enviar pedido por WhatsApp</button>
         </div>
       </div>
     </main>
@@ -42,12 +48,40 @@
   <script>
     function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
     function fmtMoney(n){ return '$' + Number(n).toLocaleString('es-CO'); }
+
+    /** Digits-only WhatsApp number with Colombia country code when needed */
+    function normalizeWaPhone(raw){
+      if(!raw) return '';
+      let d = String(raw).replace(/\D/g, '');
+      if(!d) return '';
+      if(d.startsWith('00')) d = d.slice(2);
+      // Colombian mobile 3xx xxx xxxx
+      if(d.length === 10 && d.startsWith('3')) d = '57' + d;
+      // local landline-ish 7 digits — skip
+      return d;
+    }
+
+    function openWhatsAppToStore(phoneRaw, message){
+      const phone = normalizeWaPhone(phoneRaw);
+      if(!phone){
+        throw new Error('La tienda no tiene un WhatsApp configurado. Pídele al negocio que agregue su teléfono en Perfil.');
+      }
+      const url = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(message);
+      const w = window.open(url, '_blank');
+      if(!w){
+        // popup blocked — navigate same tab
+        window.location.href = url;
+      }
+      return url;
+    }
+
     const pathParts = window.location.pathname.split('/').filter(Boolean);
     const slug = (pathParts.length >= 2 && pathParts[0] === 'b') ? pathParts[1] : pathParts[0] || '';
 
     let BUSINESS = null;
     let MENU = [];
     let CART = [];
+    let SENDING = false;
 
     async function loadBusiness(){
       try{
@@ -98,10 +132,13 @@
 
     function renderCart(){
       const el = document.getElementById('cartItems');
+      const fields = document.getElementById('checkoutFields');
+      const wa = document.getElementById('waBtn');
       if(!CART.length){
         el.innerHTML = 'No hay items en el carrito';
         document.getElementById('cartTotal').innerText = '';
-        document.getElementById('waBtn').style.display='none';
+        wa.style.display='none';
+        fields.style.display='none';
         return;
       }
       el.innerHTML = '<ul>' + CART.map(c =>
@@ -118,50 +155,106 @@
       }));
       const total = CART.reduce((s,i)=> s + i.qty * i.price, 0);
       document.getElementById('cartTotal').innerText = 'Total: ' + fmtMoney(total);
-      const wa = document.getElementById('waBtn');
+      fields.style.display='block';
       wa.style.display='inline-block';
-      wa.onclick = ()=> sendWhatsApp(total);
+      wa.disabled = SENDING;
+      wa.textContent = SENDING ? 'Enviando...' : 'Enviar pedido por WhatsApp';
+      wa.onclick = () => sendOrderToStoreWhatsApp();
     }
 
-    async function sendWhatsApp(){
+    async function resolveStorePhone(){
+      let phone = BUSINESS && BUSINESS.phone;
+      if(!normalizeWaPhone(phone)){
+        try{
+          const cfg = await fetch('/api/config').then(r => r.json());
+          phone = cfg.whatsapp_number;
+        }catch(e){ /* ignore */ }
+      }
+      return phone;
+    }
+
+    function buildStoreMessage(order, customer, customerPhone, items){
+      const bizName = (BUSINESS && BUSINESS.name) || slug || 'tienda';
+      const lines = [
+        '🛒 *Nuevo pedido — ' + bizName + '*',
+        '',
+        'Cliente: ' + customer,
+        customerPhone ? ('WhatsApp cliente: ' + customerPhone) : null,
+        '',
+        '*Detalle:*',
+        ...items.map(c => '• ' + c.name + ' x' + c.qty + ' — ' + fmtMoney(c.price * c.qty)),
+        '',
+        '*Total: ' + fmtMoney(order.total) + '*',
+        'Pedido #' + order.id,
+        order.checkout_url ? ('Pagar / comprobante: ' + order.checkout_url) : null
+      ].filter(Boolean);
+      return lines.join('\n');
+    }
+
+    async function sendOrderToStoreWhatsApp(){
       const msgEl = document.getElementById('orderMsg');
+      const wa = document.getElementById('waBtn');
       msgEl.style.display='none';
-      const customer = prompt('Nombre del cliente (opcional)') || 'Cliente';
-      const phone = prompt('Teléfono del cliente (opcional, sin +)') || '';
+
+      const customer = (document.getElementById('custName').value || '').trim() || 'Cliente';
+      const customerPhone = (document.getElementById('custPhone').value || '').trim();
+      if(CART.length === 0){
+        msgEl.textContent = 'Agrega productos al carrito primero';
+        msgEl.className='small inline-msg error';
+        msgEl.style.display='block';
+        return;
+      }
+
+      let storePhone;
+      try{
+        storePhone = await resolveStorePhone();
+        normalizeWaPhone(storePhone); // validate early
+        if(!normalizeWaPhone(storePhone)) throw new Error('sin teléfono');
+      }catch(e){
+        msgEl.textContent = 'La tienda no tiene WhatsApp configurado. No se puede enviar el pedido.';
+        msgEl.className='small inline-msg error';
+        msgEl.style.display='block';
+        return;
+      }
+
       const items = CART.map(c => ({ id: c.id, name: c.name, price: c.price, qty: c.qty }));
+      SENDING = true;
+      wa.disabled = true;
+      wa.textContent = 'Enviando...';
+
       try{
         const res = await fetch('/api/orders', {
           method: 'POST',
           headers: {'content-type':'application/json'},
-          body: JSON.stringify({ customer_name: customer, customer_phone: phone || null, items, ownerSlug: slug })
+          body: JSON.stringify({
+            customer_name: customer,
+            customer_phone: customerPhone || null,
+            items,
+            ownerSlug: slug
+          })
         });
         if(!res.ok){
           const t = await res.json().catch(()=>({}));
-          msgEl.textContent = 'Error creando pedido: ' + (t.error || res.statusText);
-          msgEl.className='small inline-msg error';
-          msgEl.style.display='block';
-          return;
+          throw new Error(t.error || res.statusText);
         }
-        const data = await res.json();
-        let phoneTo = BUSINESS.phone;
-        if(!phoneTo){
-          const cfg = await fetch('/api/config').then(r=>r.json());
-          phoneTo = cfg.whatsapp_number;
-        }
-        const lines = items.map(c => `${c.name} x${c.qty} — ${fmtMoney(c.price * c.qty)}`);
-        lines.push('Total: ' + fmtMoney(data.total));
-        lines.push('Pedido ID: ' + data.id);
-        if(data.checkout_url) lines.push('Comprobante/checkout: ' + data.checkout_url);
-        window.open(`https://wa.me/${phoneTo}?text=${encodeURIComponent('Nuevo pedido\n' + lines.join('\n'))}`, '_blank');
-        msgEl.textContent = 'Pedido creado. ID: ' + data.id;
+        const order = await res.json();
+        const message = buildStoreMessage(order, customer, customerPhone, items);
+        openWhatsAppToStore(storePhone, message);
+
+        msgEl.textContent = 'Pedido #' + order.id + ' creado. Se abrió WhatsApp para enviarlo a la tienda.';
         msgEl.className='small inline-msg success';
         msgEl.style.display='block';
         CART = [];
+        document.getElementById('custName').value = '';
+        document.getElementById('custPhone').value = '';
         renderCart();
       }catch(e){
-        msgEl.textContent = 'Error creando pedido: ' + e.message;
+        msgEl.textContent = 'No se pudo enviar: ' + e.message;
         msgEl.className='small inline-msg error';
         msgEl.style.display='block';
+      }finally{
+        SENDING = false;
+        renderCart();
       }
     }
 

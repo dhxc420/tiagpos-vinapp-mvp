@@ -297,14 +297,30 @@
         if(!res.ok){ alert('No se pudo cargar la orden'); return }
         const order = await res.json();
         const user = getUser();
-        // prefer customer phone if present, else business phone
-        const toPhone = order.customer_phone || (user && user.business && user.business.phone) || (await (await fetch('/api/config')).json()).whatsapp_number;
-        const lines = order.items.map(i=> `${i.name} x${i.qty} — ${fmtMoney(i.price * i.qty)}`);
-        lines.push('Total: ' + fmtMoney(order.total));
-        lines.push('Pedido ID: ' + order.id);
-        const text = encodeURIComponent('Detalle de pedido\n' + lines.join('\n'));
-        const url = `https://wa.me/${toPhone}?text=${text}`;
-        window.open(url, '_blank');
+        // Notify the customer; fall back to store phone only if customer has none
+        function normalizeWaPhone(raw){
+          if(!raw) return '';
+          let d = String(raw).replace(/\D/g, '');
+          if(d.startsWith('00')) d = d.slice(2);
+          if(d.length === 10 && d.startsWith('3')) d = '57' + d;
+          return d;
+        }
+        const toPhone = normalizeWaPhone(order.customer_phone)
+          || normalizeWaPhone(user && user.business && user.business.phone)
+          || normalizeWaPhone((await (await fetch('/api/config')).json()).whatsapp_number);
+        if(!toPhone){ alert('No hay número de WhatsApp para este pedido'); return }
+        const lines = [
+          'Hola' + (order.customer_name ? (' ' + order.customer_name) : '') + ',',
+          '',
+          'Te escribimos de ' + ((user && user.business && user.business.name) || 'la tienda') + ' sobre tu pedido #' + order.id + ':',
+          ...order.items.map(i=> '• ' + i.name + ' x' + i.qty + ' — ' + fmtMoney(i.price * i.qty)),
+          '',
+          'Total: ' + fmtMoney(order.total),
+          'Estado: ' + order.status
+        ];
+        const url = `https://wa.me/${toPhone}?text=${encodeURIComponent(lines.join('\n'))}`;
+        const w = window.open(url, '_blank');
+        if(!w) window.location.href = url;
       }catch(e){ alert('Error enviando WA: '+e.message); }
     }
 
