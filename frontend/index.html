@@ -3,144 +3,185 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>tiagPOS - Sistema POS para restaurantes</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css">
+  <title>tiagPOS — Pedidos por WhatsApp para tu restaurante</title>
+  <meta name="description" content="Menú digital, pedidos y confirmación de pagos por WhatsApp. El POS simple para restaurantes que venden por chat." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;650;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <script>
+    (function(){try{var t=localStorage.getItem('tiagpos-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.setAttribute('data-theme','dark');else document.documentElement.setAttribute('data-theme','light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();
+  </script>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/landing.css" />
 </head>
-<body>
-  <header class="container header">
-    <div class="logo"><div style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2))"></div><div class="brand">tiagPOS</div></div>
-    <nav class="nav">
-      <a href="#features">Características</a>
-      <a href="#pricing">Precios</a>
-      <a href="/admin.html" class="secondary">Login / Register</a>
-      <a href="#menu" class="cta-btn">Abrir Menú</a>
-    </nav>
+<body class="lp-body">
+  <header class="lp-nav" id="nav">
+    <div class="lp-nav-inner">
+      <a class="lp-brand" href="/">tiag<span>POS</span></a>
+      <div class="lp-nav-links">
+        <a href="#flujo">Cómo funciona</a>
+        <a href="#modulos">Módulos</a>
+        <a href="#precios">Precios</a>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Cambiar tema">
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 14.5A8.5 8.5 0 1 1 9.5 3a7 7 0 0 0 11.5 11.5z"/></svg>
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </button>
+        <a href="/admin.html">Entrar</a>
+        <a class="lp-nav-cta" href="/b/santiburgers">Ver demo</a>
+      </div>
+    </div>
   </header>
 
-  <main class="container">
-    <section class="hero">
-      <div>
-        <h1>El sistema POS para restaurantes más fácil de adaptar y completo</h1>
-        <p>Un gestor de pedidos, un bot, confirmación de pagos, menú digital, marketing y App. Todo lo que tu restaurante necesita, en un solo lugar.</p>
-        <div style="margin-top:18px;display:flex;gap:12px">
-          <a href="#menu" class="cta-btn">Probar ahora</a>
-          <a href="/admin.html" class="secondary">Login / Register</a>
-        </div>
+  <section class="lp-hero" id="top">
+    <div class="lp-hero-media" data-parallax="0.28"></div>
+    <div class="lp-hero-orb a" data-parallax="-0.18"></div>
+    <div class="lp-hero-orb b" data-parallax="0.4"></div>
+    <div class="lp-hero-copy">
+      <div class="lp-kicker"><i></i> Hecho para vender por WhatsApp</div>
+      <h1 class="lp-hero-brand">tiag<em>POS</em></h1>
+      <p class="lp-hero-lead">Menú digital, pedidos al instante y confirmación de pago — sin fricción, sin app extra para tu cliente.</p>
+      <div class="lp-hero-actions">
+        <a class="lp-btn lp-btn-primary" href="/admin.html">Crear mi negocio</a>
+        <a class="lp-btn lp-btn-ghost" href="/b/santiburgers">Probar menú demo</a>
       </div>
-      <div class="hero-visual">
-        <div style="height:260px;display:flex;align-items:center;justify-content:center;color:var(--muted)">Demo UI / Mockups</div>
-      </div>
-    </section>
+    </div>
+  </section>
 
-    <section id="features" class="features">
-      <div class="feature">
-        <h4>Gestor de pedidos</h4>
-        <p>Recibe, procesa y gestiona pedidos de forma simple y rápida desde un panel centralizado.</p>
-      </div>
-      <div class="feature">
-        <h4>Pagos y confirmaciones</h4>
-        <p>Soporta checkout externo y confirmación por WhatsApp (Click-to-Chat) para flujo de pago sencillo.</p>
-      </div>
-      <div class="feature">
-        <h4>Bot y notificaciones</h4>
-        <p>Notifica clientes y personal; automatizaciones a través de WhatsApp y webhooks.</p>
-      </div>
-    </section>
+  <section class="lp-section" id="flujo">
+    <div class="lp-section-head" style="padding:0 24px">
+      <h2>Del chat al pedido en tres pasos</h2>
+      <p>Menos paneles. Más ventas. El cliente pide, WhatsApp avisa, tú confirmas.</p>
+    </div>
+    <div class="lp-flow">
+      <article>
+        <div class="step">01</div>
+        <h3>Publica tu menú</h3>
+        <p>Comparte tu link `/b/tu-negocio`. El cliente ve precios y disponibilidad en el celular.</p>
+      </article>
+      <article>
+        <div class="step">02</div>
+        <h3>Recibe por WhatsApp</h3>
+        <p>Al enviar el carrito se crea el pedido y se abre un mensaje listo hacia la tienda.</p>
+      </article>
+      <article>
+        <div class="step">03</div>
+        <h3>Cobra y confirma</h3>
+        <p>Checkout Nequi + comprobante. Marca pagado desde el panel cuando lo valides.</p>
+      </article>
+    </div>
+  </section>
 
-    <section id="menu" class="section">
-      <h2>Menú</h2>
-      <div class="app-card">
-        <div id="menu"></div>
+  <section class="lp-section" id="modulos">
+    <div class="lp-strip">
+      <div class="lp-strip-visual">
+        <img data-parallax="0.12" src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1400&q=80" alt="Interior de restaurante" />
       </div>
-      <div style="margin-top:12px;" id="orderArea"></div>
-    </section>
-
-    <section id="pricing" class="section">
-      <h2>Planes</h2>
-      <div class="cards">
-        <div class="card"><h3>Start</h3><p class="price">$129.000</p><p class="small">Ideal si buscas agilidad</p><a class="btn" href="#">Lo quiero</a></div>
-        <div class="card"><h3>Go</h3><p class="price">$179.000</p><p class="small">Control y organización</p><a class="btn" href="#">Lo quiero</a></div>
-        <div class="card"><h3>Pro</h3><p class="price">$229.000</p><p class="small">Funcionalidades avanzadas</p><a class="btn btn-primary" href="#">Lo quiero</a></div>
-        <div class="card"><h3>IA Avanzado</h3><p class="price">Desde $370.000</p><p class="small">Escalado y mapas inteligentes</p><a class="btn btn-primary" href="#">Cotizar</a></div>
+      <div class="lp-strip-panel">
+        <h3>Operación real, no solo landing</h3>
+        <p>Lo que ya corre hoy en tiagPOS para que abras y vendas.</p>
+        <ul class="lp-list">
+          <li>Menú digital por negocio con slug público</li>
+          <li>Pedidos + carrito + WhatsApp a la tienda</li>
+          <li>Panel admin: pedidos, inventario y caja</li>
+          <li>Checkout con comprobante y token seguro</li>
+          <li>Tema claro / oscuro en toda la app</li>
+        </ul>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <footer class="footer">
-          <div>© 2026 tiagPOS — Todos los derechos reservados</div>
-      <div class="small">Soporte: +57 324 2281300 • Nequi</div>
-    </footer>
-  </main>
+  <section class="lp-section" id="precios">
+    <div class="lp-section-head" style="padding:0 24px">
+      <h2>Planes claros</h2>
+      <p>Empieza simple. Escala cuando tu cocina lo pida.</p>
+    </div>
+    <div class="lp-pricing">
+      <div class="lp-plan">
+        <h3>Start</h3>
+        <div class="amount">$129.000 <small>/mes</small></div>
+        <p class="desc">Para recibir pedidos sin caos.</p>
+        <ul>
+          <li>Menú digital</li>
+          <li>WhatsApp pedidos</li>
+          <li>Panel admin</li>
+          <li>2 usuarios</li>
+        </ul>
+        <a class="lp-btn lp-btn-primary" href="/admin.html">Empezar</a>
+      </div>
+      <div class="lp-plan featured">
+        <h3>Go</h3>
+        <div class="amount">$179.000 <small>/mes</small></div>
+        <p class="desc">Control de inventario y caja.</p>
+        <ul>
+          <li>Todo Start</li>
+          <li>Inventario</li>
+          <li>Caja / movimientos</li>
+          <li>5 usuarios</li>
+        </ul>
+        <a class="lp-btn lp-btn-primary" href="/admin.html">Lo quiero</a>
+      </div>
+      <div class="lp-plan">
+        <h3>Pro</h3>
+        <div class="amount">$229.000 <small>/mes</small></div>
+        <p class="desc">Cuando ya operas a ritmo alto.</p>
+        <ul>
+          <li>Todo Go</li>
+          <li>Reportes</li>
+          <li>Usuarios ilimitados*</li>
+          <li>Soporte prioritario</li>
+        </ul>
+        <a class="lp-btn lp-btn-primary" href="https://wa.me/573242281300?text=Hola%2C%20quiero%20tiagPOS%20Pro" target="_blank" rel="noopener">Cotizar</a>
+      </div>
+    </div>
+  </section>
 
-  <!-- React via CDN (lightweight for MVP demo) -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/htm@3.1.1/dist/htm.umd.js"></script>
+  <section class="lp-cta" id="demo">
+    <h2>Pruébalo con un menú real</h2>
+    <p>Entra a la demo de santiburgers, arma un pedido y mira cómo llega el mensaje a WhatsApp.</p>
+    <div class="lp-hero-actions" style="justify-content:center">
+      <a class="lp-btn lp-btn-primary" href="/b/santiburgers">Abrir demo</a>
+      <a class="lp-btn lp-btn-ghost" href="/admin.html" style="color:var(--ink);border-color:var(--line);background:transparent">Ir al panel</a>
+    </div>
+  </section>
+
+  <footer class="lp-footer">
+    <div><strong>tiagPOS</strong> — pedidos que caben en un chat.</div>
+    <div>Soporte: +57 324 2281300</div>
+  </footer>
+
+  <script src="/theme.js"></script>
   <script>
-    const html = htm.bind(React.createElement);
-    async function fetchMenu(){
-      const res = await fetch('/api/menu');
-      return res.json();
-    }
-    async function fetchConfig(){
-      try{
-        const r = await fetch('/api/config');
-        return await r.json();
-      }catch(e){
-        return { whatsapp_number: '573001234567', checkout_base: 'https://example.com/checkout' };
-      }
-    }
-    function App(){
-      const [menu,setMenu] = React.useState([]);
-      const [cart,setCart] = React.useState([]);
-      const [lastOrder,setLastOrder] = React.useState(null);
-      const [config,setConfig] = React.useState({whatsapp_number:'', checkout_base:''});
+    (function(){
+      var nav = document.getElementById('nav');
+      var layers = [].slice.call(document.querySelectorAll('[data-parallax]'));
+      var steps = [].slice.call(document.querySelectorAll('.lp-flow article'));
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-      React.useEffect(()=>{fetchMenu().then(setMenu); fetchConfig().then(setConfig)},[]);
-      function add(item){
-        const found = cart.find(c=>c.id===item.id);
-        if(found){ setCart(cart.map(c=> c.id===item.id ? {...c, qty: c.qty+1} : c)) }
-        else setCart([...cart, {...item, qty:1}]);
-      }
-      async function submit(){
-        const body = { customer_name: 'Cliente demo', items: cart };
-        const res = await fetch('/api/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
-        const data = await res.json();
-        setLastOrder(data);
-        setCart([]);
+      function onScroll(){
+        var y = window.scrollY || 0;
+        if(nav) nav.classList.toggle('is-solid', y > 24);
+        if(!reduce){
+          layers.forEach(function(el){
+            var speed = parseFloat(el.getAttribute('data-parallax') || '0');
+            el.style.transform = 'translate3d(0,' + (y * speed) + 'px,0) scale(' + (el.tagName === 'IMG' ? 1.05 : (el.classList.contains('lp-hero-media') ? 1.08 : 1)) + ')';
+          });
+        }
       }
 
-      function buildWhatsAppLink(order){
-        if(!config.whatsapp_number) return '#';
-        const itemsText = order.items.map(i=> `${i.name} x${i.qty}`).join('%0A');
-        const msg = `Hola, confirmo el pedido #${order.id}%0A${itemsText}%0ATotal: $${order.total}`;
-        return `https://wa.me/${config.whatsapp_number}?text=${encodeURIComponent(msg)}`;
+      if('IntersectionObserver' in window){
+        var io = new IntersectionObserver(function(entries){
+          entries.forEach(function(en){
+            if(en.isIntersecting) en.target.classList.add('is-in');
+          });
+        }, { threshold: 0.2 });
+        steps.forEach(function(s, i){ s.style.transitionDelay = (i * 0.12) + 's'; io.observe(s); });
+      } else {
+        steps.forEach(function(s){ s.classList.add('is-in'); });
       }
 
-      const checkoutLink = lastOrder ? `${(lastOrder.checkout_url) ? lastOrder.checkout_url : (config.checkout_base + '?orderId=' + lastOrder.id + '&total=' + lastOrder.total)}` : null;
-
-      return html`<div>
-        <h3>Menú</h3>
-        <div>${menu.map(it=> html`<div style="display:flex;justify-content:space-between;padding:8px 0"><div><strong>${it.name}</strong><div style="color:#666">${(it.price/1000).toFixed(0)}.000</div></div><div><button onclick=${()=>add(it)}>Agregar</button></div></div>`)}</div>
-
-        <h3>Carrito</h3>
-        <div>${cart.map(c=> html`<div>${c.name} x ${c.qty} - ${(c.price/1000).toFixed(0)}.000</div>`)}</div>
-        <div style="margin-top:12px"><button onclick=${submit} disabled=${cart.length===0}>Enviar pedido</button></div>
-
-        ${lastOrder ? html`<div style="margin-top:18px;padding:12px;border-radius:8px;background:#f3f4f6">
-          <h4>Pedido creado — ID: ${lastOrder.id}</h4>
-          <p>Total: $${lastOrder.total}</p>
-          <div style="display:flex;gap:8px">
-            <a href=${checkoutLink} target="_blank"><button>Ir a pagar</button></a>
-            <a href=${buildWhatsAppLink(lastOrder)} target="_blank"><button>Confirmar por WhatsApp</button></a>
-          </div>
-        </div>` : null}
-      </div>`;
-    }
-    ReactDOM.createRoot(document.getElementById('menu')).render(React.createElement(App));
-
-    // render orderArea with simple info
-    document.getElementById('orderArea').innerText = 'Usa el menú para armar un pedido y enviarlo al backend.';
+      window.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+    })();
   </script>
 </body>
 </html>
