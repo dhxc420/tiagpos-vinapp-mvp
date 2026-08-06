@@ -35,6 +35,7 @@
         <nav id="sidebarNav">
           <ul style="list-style:none;padding:0;margin:0">
             <li><a href="#" data-section="dashboard" class="side-link">🏠 Dashboard</a></li>
+            <li id="navNegocios" style="display:none"><a href="#" data-section="negocios" class="side-link">🏪 Negocios</a></li>
             <li><a href="#" data-section="orders" class="side-link">🧾 Pedidos</a></li>
             <li><a href="#" data-section="inventory" class="side-link">📦 Inventario</a></li>
             <li><a href="#" data-section="menu" class="side-link">🍽️ Menú</a></li>
@@ -559,21 +560,35 @@
           bizEl.style.display = 'none';
         }
 
-        // If user is negocio, show sidebar and admin areas; otherwise restrict
-        if(user.role === 'negocio'){
+        // If user is negocio or admin, show sidebar and admin areas
+        if(user.role === 'negocio' || user.role === 'admin'){
           if(sidebar) sidebar.style.display = 'block';
           if(sidebarLogo && user.business && user.business.logo){ sidebarLogo.src = user.business.logo; sidebarLogo.style.display='block'; }
-          if(sidebarBizName) sidebarBizName.textContent = (user.business && user.business.name) ? user.business.name : (user.username || 'Negocio');
-          const publicLink = document.getElementById('publicLink'); if(publicLink){ if(user.business && user.business.slug){ publicLink.href = '/b/' + encodeURIComponent(user.business.slug); publicLink.style.display = 'inline-block'; } else { publicLink.style.display = 'none'; } }
+          if(sidebarBizName) sidebarBizName.textContent = user.role === 'admin'
+            ? 'Admin tiagPOS'
+            : ((user.business && user.business.name) ? user.business.name : (user.username || 'Negocio'));
+          const roleEl = document.getElementById('sidebarBizRole');
+          if(roleEl) roleEl.textContent = user.role === 'admin' ? 'Administrador' : 'Negocio';
+          const publicLink = document.getElementById('publicLink');
+          if(publicLink){
+            if(user.role === 'negocio' && user.business && user.business.slug){
+              publicLink.href = '/b/' + encodeURIComponent(user.business.slug);
+              publicLink.style.display = 'inline-block';
+            } else {
+              publicLink.style.display = 'none';
+            }
+          }
+          const navNeg = document.getElementById('navNegocios');
+          if(navNeg) navNeg.style.display = user.role === 'admin' ? 'list-item' : 'none';
           const post = document.getElementById('postAuthControls'); if(post) post.style.display = 'block';
           const list = document.getElementById('list'); if(list) list.style.display = 'block';
+          const d = document.getElementById('detail'); if(d) d.style.display='none';
         } else {
           // not a negocio: hide admin areas
           if(sidebar) sidebar.style.display = 'none';
           const post = document.getElementById('postAuthControls'); if(post) post.style.display = 'none';
           const list = document.getElementById('list'); if(list) list.style.display = 'none';
-          // show a message in main content
-          const d = document.getElementById('detail'); d.style.display='block'; d.innerHTML = '<div class="card">Acceso denegado: este panel es solo para cuentas con rol "negocio".</div>';
+          const d = document.getElementById('detail'); d.style.display='block'; d.innerHTML = '<div class="card">Acceso denegado: este panel es solo para cuentas con rol "negocio" o "admin".</div>';
         }
 
       } else {
@@ -617,6 +632,43 @@
         if(list) { list.style.display='block'; load(); }
       } else if(section === 'orders'){
         if(list) { list.style.display='block'; load(); }
+      } else if(section === 'negocios'){
+        if(detail){
+          detail.style.display='block';
+          detail.innerHTML = `
+            <h3>Negocios registrados</h3>
+            <p class="small">Usuarios con rol negocio</p>
+            <div id="negociosContent" style="margin-top:12px">Cargando...</div>`;
+          (async ()=>{
+            const box = document.getElementById('negociosContent');
+            try{
+              const res = await apiFetch('/api/admin/negocios');
+              if(res.status === 403){ box.innerHTML = 'Solo el admin puede ver esta sección'; return }
+              if(!res.ok){ box.innerHTML = 'No se pudo cargar'; return }
+              const rows = await res.json();
+              if(!rows.length){ box.innerHTML = 'No hay negocios registrados'; return }
+              box.innerHTML = `<table style="width:100%;border-collapse:collapse">
+                <thead><tr>
+                  <th style="text-align:left;padding:8px">ID</th>
+                  <th style="text-align:left;padding:8px">Usuario</th>
+                  <th style="text-align:left;padding:8px">Negocio</th>
+                  <th style="text-align:left;padding:8px">Teléfono</th>
+                  <th style="text-align:left;padding:8px">Menú</th>
+                  <th style="text-align:left;padding:8px">Pedidos</th>
+                  <th style="text-align:left;padding:8px">Público</th>
+                </tr></thead>
+                <tbody>${rows.map(n => `<tr>
+                  <td style="padding:8px;border-top:1px solid var(--line)">#${esc(n.id)}</td>
+                  <td style="padding:8px;border-top:1px solid var(--line)">${esc(n.username)}</td>
+                  <td style="padding:8px;border-top:1px solid var(--line)">${esc((n.business && n.business.name) || '—')}</td>
+                  <td style="padding:8px;border-top:1px solid var(--line)">${esc((n.business && n.business.phone) || '—')}</td>
+                  <td style="padding:8px;border-top:1px solid var(--line)">${esc(n.stats && n.stats.menus)}</td>
+                  <td style="padding:8px;border-top:1px solid var(--line)">${esc(n.stats && n.stats.orders)}</td>
+                  <td style="padding:8px;border-top:1px solid var(--line)">${n.public_url ? `<a href="${esc(n.public_url)}" target="_blank" rel="noopener">${esc(n.public_url)}</a>` : '—'}</td>
+                </tr>`).join('')}</tbody></table>`;
+            }catch(e){ box.innerHTML = 'Error: ' + e.message; }
+          })();
+        }
       } else if(section === 'inventory'){
         if(detail) {
           detail.style.display='block';

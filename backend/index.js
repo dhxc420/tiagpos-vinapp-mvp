@@ -255,13 +255,29 @@ const SEED_NEGOCIO_USER = process.env.SEED_NEGOCIO_USER || 'santiburgers';
 const SEED_NEGOCIO_PASS = process.env.SEED_NEGOCIO_PASS || 'Santi2026!';
 
 async function ensureAdmin() {
+  if (!ADMIN_USER || !ADMIN_PASS) return;
   db = readDB();
-  const existing = db.users.find(u => u.username === ADMIN_USER);
-  if (existing || !ADMIN_PASS) return;
   const { salt, hash } = hashPassword(ADMIN_PASS);
-  db.users.push({ id: ++db.lastUserId, username: ADMIN_USER, salt, hash, role: 'negocio' });
-  await writeDB(db);
-  console.log('Admin user created:', ADMIN_USER);
+  let existing = db.users.find(u => u.username === ADMIN_USER);
+  const forceReset = process.env.ADMIN_RESET === '1';
+  if (!existing) {
+    db.users.push({
+      id: ++db.lastUserId,
+      username: ADMIN_USER,
+      salt,
+      hash,
+      role: 'admin',
+      business: { name: 'tiagPOS Admin', slug: 'admin' }
+    });
+    await writeDB(db);
+    console.log('Admin user created:', ADMIN_USER);
+  } else if (forceReset || existing.role !== 'admin') {
+    existing.salt = salt;
+    existing.hash = hash;
+    existing.role = 'admin';
+    await writeDB(db);
+    console.log('Admin user password/role updated:', ADMIN_USER);
+  }
 }
 
 async function ensureSeedNegocio() {
@@ -368,8 +384,20 @@ function requireNegocio(req, res, next) {
   req.token = parts[1];
   db = readDB();
   const user = db.users.find(u => u.id === payload.userId);
-  if (!user || user.role !== 'negocio') return res.status(403).json({ error: 'Forbidden' });
+  if (!user || (user.role !== 'negocio' && user.role !== 'admin')) return res.status(403).json({ error: 'Forbidden' });
   req.user = { id: user.id, username: user.username, role: user.role, business: user.business || {} };
+  next();
+}
+
+function requireAdmin(req, res, next) {
+  const parts = (req.headers.authorization || '').split(' ');
+  if (parts.length !== 2 || parts[0] !== 'Bearer') return res.status(401).json({ error: 'Unauthorized' });
+  const payload = validateToken(parts[1]);
+  if (!payload) return res.status(401).json({ error: 'Unauthorized' });
+  db = readDB();
+  const user = db.users.find(u => u.id === payload.userId);
+  if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  req.user = { id: user.id, username: user.username, role: user.role };
   next();
 }
 
@@ -400,9 +428,47 @@ app.post('/api/login', (req, res) => {
   db = readDB();
   const user = db.users.find(u => u.username === username);
   if (user && verifyPassword(password, user.salt, user.hash)) {
-    return res.json({ token: createToken(user.id), user: { id: user.id, username: user.username, role: user.role } });
+    const out = { id: user.id, username: user.username, role: user.role };
+    if (user.business) out.business = user.business;
+    return res.json({ token: createToken(user.id), user: out });
   }
   return res.status(401).json({ error: 'Invalid credentials' });
+});
+
+app.get('/api/admin/users', requireAdmin, (req, res) => {
+  db = readDB();
+  const users = (db.users || []).map(u => ({
+    id: u.id,
+    username: u.username,
+    role: u.role,
+    business: u.business ? {
+      name: u.business.name || '',
+      email: u.business.email || '',
+      phone: u.business.phone || '',
+      address: u.business.address || '',
+      slug: u.business.slug || '',
+      logo: u.business.logo ? true : false
+    } : null
+  }));
+  res.json(users);
+});
+
+app.get('/api/admin/negocios', requireAdmin, (req, res) => {
+  db = readDB();
+  const negocios = (db.users || [])
+    .filter(u => u.role === 'negocio')
+    .map(u => {
+      const menus = (db.menus || []).filter(m => m.ownerId === u.id).length;
+      const orders = (db.orders || []).filter(o => o.ownerId === u.id).length;
+      return {
+        id: u.id,
+        username: u.username,
+        business: u.business || {},
+        stats: { menus, orders },
+        public_url: u.business && u.business.slug ? `/b/${u.business.slug}` : null
+      };
+    });
+  res.json(negocios);
 });
 
 app.post('/api/register', async (req, res) => {
