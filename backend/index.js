@@ -342,7 +342,7 @@ async function ensureMercaMono() {
   db = readDB();
   const { salt, hash } = hashPassword(PASS);
   const categories = ['Carnicería', 'Legumbrería', 'Comestibles'];
-  let user = db.users.find(u => u.username === USER);
+  let user = db.users.find(u => u.username === USER || (u.business && u.business.slug === 'mercamono'));
   let changed = false;
   if (!user) {
     user = {
@@ -366,16 +366,19 @@ async function ensureMercaMono() {
     changed = true;
     console.log('Merca Mono user created:', USER);
   } else {
+    user.username = USER;
     user.business = user.business || {};
-    user.business.name = user.business.name || 'Merca Mono';
-    user.business.store_kind = 'market';
-    user.business.categories = categories;
-    if (!user.business.slug) user.business.slug = 'mercamono';
-    if (typeof user.business.is_open === 'undefined') user.business.is_open = true;
-    changed = true;
+    if (user.business.name !== 'Merca Mono') { user.business.name = user.business.name || 'Merca Mono'; changed = true; }
+    if (user.business.store_kind !== 'market') { user.business.store_kind = 'market'; changed = true; }
+    if (!Array.isArray(user.business.categories) || user.business.categories.join() !== categories.join()) {
+      user.business.categories = categories; changed = true;
+    }
+    if (user.business.slug !== 'mercamono') { user.business.slug = 'mercamono'; changed = true; }
+    if (typeof user.business.is_open === 'undefined') { user.business.is_open = true; changed = true; }
   }
 
   const owned = db.menus.filter(m => m.ownerId === user.id);
+  const seededMenus = [];
   if (!owned.length) {
     const seedProducts = [
       { name: 'Carne de res molida', description: 'Paquete fresco 500g', price: 12500, stock: 40, category: 'Carnicería', unit: 'paq' },
@@ -389,7 +392,7 @@ async function ensureMercaMono() {
       { name: 'Huevos x12', description: 'Cartón de 12', price: 7200, stock: 50, category: 'Comestibles', unit: 'cartón' }
     ];
     for (const p of seedProducts) {
-      db.menus.push({
+      const row = {
         id: ++db.lastMenuId,
         ownerId: user.id,
         name: p.name,
@@ -399,13 +402,64 @@ async function ensureMercaMono() {
         category: p.category,
         unit: p.unit,
         available: true
-      });
+      };
+      db.menus.push(row);
+      seededMenus.push(row);
     }
     changed = true;
     console.log('Merca Mono catalog seeded');
   }
 
-  if (changed) await writeDB(db);
+  if (!changed) return;
+
+  // Prefer targeted Mongo writes so huge base64 logos on other users don't block seeding
+  if (usingMongo && mongoModels) {
+    try {
+      await mongoModels.User.updateOne(
+        { username: USER },
+        {
+          $set: {
+            legacyId: user.id,
+            username: USER,
+            role: 'negocio',
+            salt: user.salt,
+            hash: user.hash,
+            business: user.business
+          }
+        },
+        { upsert: true }
+      );
+      for (const m of seededMenus) {
+        await mongoModels.Menu.updateOne(
+          { legacyId: m.id },
+          {
+            $set: {
+              legacyId: m.id,
+              legacyOwnerId: m.ownerId,
+              name: m.name,
+              description: m.description || '',
+              price: m.price,
+              stock: m.stock,
+              category: m.category || '',
+              unit: m.unit || '',
+              available: true
+            }
+          },
+          { upsert: true }
+        );
+      }
+      // Keep in-memory business fields even if full sync fails later
+      console.log('Merca Mono persisted to Mongo');
+    } catch (e) {
+      console.warn('Merca Mono direct Mongo write failed:', e.message);
+    }
+  }
+
+  try {
+    await writeDB(db);
+  } catch (e) {
+    console.warn('Merca Mono writeDB failed (user kept in memory):', e.message);
+  }
 }
 
 async function ensureBusinessSlugs() {
@@ -441,17 +495,11 @@ app.use(async (req, res, next) => {
     if (usingMongo) {
       try { db = await loadDbFromMongo(); } catch (e) { console.warn('Mongo reload failed:', e.message); }
     }
-    // Serverless cold starts / multi-instance: keep Merca Mono available after Mongo reload
-    const hasMerca = db.users && db.users.some(u =>
-      (u.username === (process.env.MERCA_USER || 'mercamono')) ||
-      (u.business && u.business.slug === 'mercamono')
-    );
+    // Serverless: seed Merca Mono if missing after Mongo reload
+    const hasMerca = db.users && db.users.some(u => u.business && u.business.slug === 'mercamono');
     if (!hasMerca) {
       try {
         await ensureMercaMono();
-        if (usingMongo) {
-          try { db = await loadDbFromMongo(); } catch (e) { console.warn('Mongo reload after merca seed failed:', e.message); }
-        }
       } catch (e) {
         console.warn('ensureMercaMono failed:', e.message);
       }
