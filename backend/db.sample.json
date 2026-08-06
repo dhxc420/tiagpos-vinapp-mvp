@@ -4,12 +4,27 @@
     { "id": 2, "name": "Hamburguesa Clasica", "price": 18000, "available": true }
   ],
   "orders": [],
-  "users": [],
+  "users": [
+    {
+      "id": 1,
+      "username": "santiburgers",
+      "salt": "e980c18077c8c59f15a334642ea5e322",
+      "hash": "e92710daf75979ca1139e8e2cac1462aee47bb46baef5ae2e3eb9aa12448c2bde4729b986d4988479966dad631f376effe28019842f1f7d9773390b71af2a006",
+      "role": "negocio",
+      "business": {
+        "name": "santiburgers",
+        "email": "santiburgers@yopmail.com",
+        "phone": "3022642595",
+        "address": "calle 52 B sur 62 A-15",
+        "slug": "santiburgers"
+      }
+    }
+  ],
   "inventories": [],
   "cash": [],
   "lastMenuId": 2,
   "lastOrderId": 0,
-  "lastUserId": 0,
+  "lastUserId": 1,
   "lastInventoryId": 0,
   "lastCashId": 0
 }

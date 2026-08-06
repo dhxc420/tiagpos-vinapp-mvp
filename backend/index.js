@@ -200,6 +200,52 @@ function ensureAdmin(){
 }
 ensureAdmin();
 
+// Ensure/reset a seed negocio account (works on Vercel where local db.json is not deployed).
+// Set SEED_NEGOCIO_USER / SEED_NEGOCIO_PASS in Vercel env to customize; defaults restore santiburgers.
+const SEED_NEGOCIO_USER = process.env.SEED_NEGOCIO_USER || 'santiburgers';
+const SEED_NEGOCIO_PASS = process.env.SEED_NEGOCIO_PASS || 'Santi2026!';
+
+function ensureSeedNegocio(){
+  if(!SEED_NEGOCIO_USER || !SEED_NEGOCIO_PASS) return;
+  db = readDB();
+  const { salt, hash } = hashPassword(SEED_NEGOCIO_PASS);
+  let user = db.users.find(u => u.username === SEED_NEGOCIO_USER);
+  if(!user){
+    user = {
+      id: ++db.lastUserId,
+      username: SEED_NEGOCIO_USER,
+      salt,
+      hash,
+      role: 'negocio',
+      business: {
+        name: SEED_NEGOCIO_USER,
+        email: '',
+        phone: '',
+        address: '',
+        slug: SEED_NEGOCIO_USER.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || 'negocio'
+      }
+    };
+    db.users.push(user);
+    console.log('Seed negocio created:', SEED_NEGOCIO_USER);
+  } else {
+    user.salt = salt;
+    user.hash = hash;
+    user.role = 'negocio';
+    if(!user.business){
+      user.business = {
+        name: SEED_NEGOCIO_USER,
+        email: '',
+        phone: '',
+        address: '',
+        slug: SEED_NEGOCIO_USER.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || 'negocio'
+      };
+    }
+    console.log('Seed negocio password reset:', SEED_NEGOCIO_USER);
+  }
+  writeDB(db);
+}
+ensureSeedNegocio();
+
 // ensure existing businesses have slugs (migration)
 function ensureBusinessSlugs(){
   db = readDB();
