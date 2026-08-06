@@ -1,5 +1,5 @@
 // migrate_to_mongo.js
-// Usage: node migrate_to_mongo.js "******host/db?options"
+// Usage: node migrate_to_mongo.js "mongodb+srv://user:pass@host/db?options"
 // If no URI passed as arg, the script will read process.env.MONGO_URI
 
 const fs = require('fs');

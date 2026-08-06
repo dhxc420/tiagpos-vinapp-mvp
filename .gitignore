@@ -8,8 +8,12 @@ node_modules/
 # Environment
 .env
 
+# Vercel
+.vercel
+
 # OS
 .DS_Store
 
 # Logs
 npm-debug.log
+*.log

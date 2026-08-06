@@ -4,17 +4,31 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
+app.set('trust proxy', true);
 app.use(cors());
 app.use(express.json({ limit: '8mb' }));
 // serve frontend static files
 app.use(express.static(path.join(__dirname, '../frontend')));
 
+// On serverless platforms (Vercel) the deployment directory is read-only;
+// only /tmp is writable, so keep mutable data there.
+const IS_SERVERLESS = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+const DATA_DIR = IS_SERVERLESS ? '/tmp' : __dirname;
+
 // serve uploaded images from /uploads
-const UPLOAD_DIR = path.join(__dirname, 'uploads');
+const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 if(!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 app.use('/uploads', express.static(UPLOAD_DIR));
 
-const DB_FILE = path.join(__dirname, 'db.json');
+const DB_FILE = path.join(DATA_DIR, 'db.json');
+// seed the writable DB on first (cold) start from a bundled db.json or db.sample.json
+if(!fs.existsSync(DB_FILE)){
+  const seedCandidates = [path.join(__dirname, 'db.json'), path.join(__dirname, 'db.sample.json')];
+  const seed = seedCandidates.find(p => p !== DB_FILE && fs.existsSync(p));
+  if(seed){
+    try{ fs.copyFileSync(seed, DB_FILE); }catch(e){ console.warn('Could not seed db.json:', e.message); }
+  }
+}
 
 // Adapter: file DB with optional Mongo sync
 let usingMongo = false;
@@ -345,9 +359,16 @@ app.post('/api/me/avatar', requireAuth, (req,res)=>{
 });
 
 // simple config endpoint: set WHATSAPP_NUMBER and CHECKOUT_BASE as env vars if desired
+// build a default checkout URL from the incoming request host (works locally and on Vercel)
+function defaultCheckoutBase(req){
+  const host = req.get('host') || 'localhost:4000';
+  const proto = req.protocol || 'http';
+  return `${proto}://${host}/checkout.html`;
+}
+
 app.get('/api/config', (req,res)=>{
   const whatsapp_number = process.env.WHATSAPP_NUMBER || '573001234567'; // e.g. country code + number, no + sign
-  const checkout_base = process.env.CHECKOUT_BASE || 'http://localhost:4000/checkout.html';
+  const checkout_base = process.env.CHECKOUT_BASE || defaultCheckoutBase(req);
   res.json({ whatsapp_number, checkout_base });
 });
 
@@ -456,7 +477,7 @@ app.post('/api/orders', (req,res)=>{
   writeDB(db);
 
   // include a checkout_url if CHECKOUT_BASE is configured
-  let checkout_base = process.env.CHECKOUT_BASE || 'http://localhost:4000/checkout.html';
+  let checkout_base = process.env.CHECKOUT_BASE || defaultCheckoutBase(req);
   try{
     const u = new URL(checkout_base);
     if (u.pathname.endsWith('/checkout')) u.pathname = u.pathname + '.html';
