@@ -485,7 +485,8 @@ app.post('/api/register', async (req, res) => {
       name: business.name || '',
       email: business.email || '',
       phone: business.phone || '',
-      address: business.address || ''
+      address: business.address || '',
+      is_open: true
     };
     const slugBase = (business.name || username || 'biz').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     let slug = slugBase || (`biz-${user.id}`);
