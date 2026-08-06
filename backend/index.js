@@ -267,24 +267,34 @@ async function ensureAdmin() {
 async function ensureSeedNegocio() {
   if (!SEED_NEGOCIO_USER || !SEED_NEGOCIO_PASS) return;
   db = readDB();
-  if (db.users.find(u => u.username === SEED_NEGOCIO_USER)) return;
   const { salt, hash } = hashPassword(SEED_NEGOCIO_PASS);
-  db.users.push({
-    id: ++db.lastUserId,
-    username: SEED_NEGOCIO_USER,
-    salt,
-    hash,
-    role: 'negocio',
-    business: {
-      name: SEED_NEGOCIO_USER,
-      email: 'santiburgers@yopmail.com',
-      phone: '3022642595',
-      address: 'calle 52 B sur 62 A-15',
-      slug: SEED_NEGOCIO_USER.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'negocio'
-    }
-  });
-  await writeDB(db);
-  console.log('Seed negocio created:', SEED_NEGOCIO_USER);
+  let user = db.users.find(u => u.username === SEED_NEGOCIO_USER);
+  const forceReset = process.env.SEED_NEGOCIO_RESET === '1';
+  if (!user) {
+    user = {
+      id: ++db.lastUserId,
+      username: SEED_NEGOCIO_USER,
+      salt,
+      hash,
+      role: 'negocio',
+      business: {
+        name: SEED_NEGOCIO_USER,
+        email: 'santiburgers@yopmail.com',
+        phone: '3022642595',
+        address: 'calle 52 B sur 62 A-15',
+        slug: SEED_NEGOCIO_USER.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'negocio'
+      }
+    };
+    db.users.push(user);
+    await writeDB(db);
+    console.log('Seed negocio created:', SEED_NEGOCIO_USER);
+  } else if (forceReset) {
+    user.salt = salt;
+    user.hash = hash;
+    user.role = 'negocio';
+    await writeDB(db);
+    console.log('Seed negocio password reset:', SEED_NEGOCIO_USER);
+  }
 }
 
 async function ensureBusinessSlugs() {
