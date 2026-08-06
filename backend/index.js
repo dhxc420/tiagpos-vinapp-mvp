@@ -441,6 +441,21 @@ app.use(async (req, res, next) => {
     if (usingMongo) {
       try { db = await loadDbFromMongo(); } catch (e) { console.warn('Mongo reload failed:', e.message); }
     }
+    // Serverless cold starts / multi-instance: keep Merca Mono available after Mongo reload
+    const hasMerca = db.users && db.users.some(u =>
+      (u.username === (process.env.MERCA_USER || 'mercamono')) ||
+      (u.business && u.business.slug === 'mercamono')
+    );
+    if (!hasMerca) {
+      try {
+        await ensureMercaMono();
+        if (usingMongo) {
+          try { db = await loadDbFromMongo(); } catch (e) { console.warn('Mongo reload after merca seed failed:', e.message); }
+        }
+      } catch (e) {
+        console.warn('ensureMercaMono failed:', e.message);
+      }
+    }
     next();
   } catch (e) {
     console.error('DB init failed:', e);
