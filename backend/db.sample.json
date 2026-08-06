@@ -1,0 +1,15 @@
+{
+  "menus": [
+    { "id": 1, "name": "Pizza Margarita", "price": 25000, "available": true },
+    { "id": 2, "name": "Hamburguesa Clasica", "price": 18000, "available": true }
+  ],
+  "orders": [],
+  "users": [],
+  "inventories": [],
+  "cash": [],
+  "lastMenuId": 2,
+  "lastOrderId": 0,
+  "lastUserId": 0,
+  "lastInventoryId": 0,
+  "lastCashId": 0
+}
