@@ -10,14 +10,21 @@
 </head>
 <body>
   <div class="wrap">
-    <header style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-      <h1 style="margin:0">tiagPOS — Panel Admin</h1>
-      <div style="display:flex;align-items:center;gap:10px">
+    <header class="admin-topbar">
+      <div>
+        <h1 class="admin-title">tiagPOS — Panel</h1>
+        <div class="small" style="color:var(--muted)">Operación del negocio</div>
+      </div>
+      <div class="admin-topbar-actions">
+        <div id="headerSession" class="header-session" style="display:none">
+          <span id="who" class="header-session-who"></span>
+          <button id="logoutBtn" class="btn btn-ghost" type="button">Cerrar sesión</button>
+        </div>
         <button class="theme-toggle" type="button" data-theme-toggle aria-label="Cambiar tema">
           <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 14.5A8.5 8.5 0 1 1 9.5 3a7 7 0 0 0 11.5 11.5z"/></svg>
           <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
         </button>
-        <a href="/" style="text-decoration:none">← Volver al sitio</a>
+        <a class="btn btn-ghost" href="/">← Sitio</a>
       </div>
     </header>
 
@@ -63,17 +70,11 @@
               <button id="registerBtn" class="btn btn-ghost" style="margin-left:8px">Registrar</button>
               <div id="loginMsg" class="small inline-msg" style="display:none;margin-left:8px;margin-top:8px"></div>
             </div>
-            <div id="logged" style="display:none;align-items:center;gap:8px;flex-direction:column;align-items:flex-start">
-              <div style="display:flex;align-items:center;gap:12px">
-                <span id="who" class="small"></span>
-                <button id="logoutBtn" class="btn btn-ghost">Cerrar sesión</button>
-              </div>
-              <div style="display:flex;align-items:center;gap:10px">
-                <img id="bizLogo" src="" alt="logo" style="width:48px;height:48px;border-radius:8px;display:none;object-fit:cover;border:1px solid rgba(0,0,0,0.06)" />
-                <div style="display:flex;flex-direction:column">
-                  <div id="bizNameLine" style="font-weight:700;color:var(--accent)"></div>
-                  <div id="bizInfo" class="small" style="display:none;margin-top:6px;color:var(--muted)"></div>
-                </div>
+            <div id="logged" style="display:none;align-items:center;gap:10px">
+              <img id="bizLogo" src="" alt="logo" style="width:48px;height:48px;border-radius:8px;display:none;object-fit:cover;border:1px solid var(--line)" />
+              <div style="display:flex;flex-direction:column">
+                <div id="bizNameLine" style="font-weight:700;color:var(--accent)"></div>
+                <div id="bizInfo" class="small" style="display:none;margin-top:4px;color:var(--muted)"></div>
               </div>
             </div>
           </div>
@@ -374,6 +375,7 @@
         document.getElementById('loginUser').value=''; document.getElementById('loginPass').value='';
         showInlineMessage('loginMsg','Autenticación correcta', 'success');
         await load();
+        showSection('dashboard');
       }catch(err){ showInlineMessage('loginMsg','Login fallido: '+err.message, 'error'); }
       finally{ btn.disabled = false; btn.textContent = 'Entrar'; }
     }
@@ -557,6 +559,8 @@
       if(token && user){
         document.getElementById('loginForm').style.display='none';
         document.getElementById('logged').style.display='flex';
+        const headerSession = document.getElementById('headerSession');
+        if(headerSession) headerSession.style.display = 'flex';
         document.getElementById('who').textContent='Conectado: '+(user.username || '') + (user.role ? ' ('+user.role+')' : '');
 
         // show business info when available
@@ -609,6 +613,8 @@
       } else {
         document.getElementById('loginForm').style.display='block';
         document.getElementById('logged').style.display='none';
+        const headerSession = document.getElementById('headerSession');
+        if(headerSession) headerSession.style.display = 'none';
         document.getElementById('who').textContent='';
         if(bizEl){ bizEl.innerHTML=''; bizEl.style.display='none'; }
         // hide post-auth areas
@@ -677,24 +683,133 @@
       // default hide both
       if(detail) detail.style.display='none'; if(list) list.style.display='none';
       if(section === 'dashboard'){
-        // show a quick dashboard
         if(detail){
           detail.style.display='block';
-          detail.innerHTML = '<h3>Dashboard</h3><p class="small">Resumen rápido de actividad</p><div id="dashContent" style="margin-top:12px">Cargando...</div>';
+          detail.innerHTML = `
+            <div class="dash-head">
+              <div>
+                <h3 style="margin:0">Dashboard</h3>
+                <p class="small" style="margin:6px 0 0">Resumen de hoy y actividad reciente</p>
+              </div>
+              <button class="btn btn-ghost" type="button" id="dashRefresh">Actualizar</button>
+            </div>
+            <div id="dashContent" style="margin-top:16px">Cargando...</div>`;
           const dash = document.getElementById('dashContent');
-          (async ()=>{
+          const renderDash = async ()=>{
             try{
-              const res = await apiFetch('/api/orders'); if(!res.ok){ dash.innerHTML='No autorizado'; return }
-              const orders = await res.json();
-              const total = orders.length;
-              const paid = orders.filter(o=>o.status==='paid').length;
-              const pending = orders.filter(o=>o.status!=='paid').length;
-              const sales = orders.filter(o=>o.status==='paid').reduce((s,o)=>s + (o.total||0),0);
-              dash.innerHTML = `<div style="display:flex;gap:12px;flex-wrap:wrap"><div class="card" style="flex:1;min-width:160px"><h4>Total Pedidos</h4><div style="font-size:20px;font-weight:800">${total}</div></div><div class="card" style="flex:1;min-width:160px"><h4>Pagados</h4><div style="font-size:20px;font-weight:800;color:var(--success)">${paid}</div></div><div class="card" style="flex:1;min-width:160px"><h4>Pendientes</h4><div style="font-size:20px;font-weight:800;color:#b45309">${pending}</div></div><div class="card" style="flex:1;min-width:160px"><h4>Ventas</h4><div style="font-size:20px;font-weight:800">${fmtMoney(sales)}</div></div></div>`;
-            }catch(e){ dash.innerHTML='Error cargando dashboard'; }
-          })();
+              const user = getUser();
+              const [ordersRes, menuRes, invRes, cashRes] = await Promise.all([
+                apiFetch('/api/orders'),
+                apiFetch('/api/menu/my').catch(()=>null),
+                apiFetch('/api/inventory').catch(()=>null),
+                apiFetch('/api/cash').catch(()=>null)
+              ]);
+              if(!ordersRes.ok){ dash.innerHTML='No autorizado'; return }
+              const orders = await ordersRes.json();
+              const menus = menuRes && menuRes.ok ? await menuRes.json() : [];
+              const inv = invRes && invRes.ok ? await invRes.json() : [];
+              const cash = cashRes && cashRes.ok ? await cashRes.json() : [];
+
+              const paid = orders.filter(o=>o.status==='paid');
+              const pending = orders.filter(o=>o.status!=='paid');
+              const sales = paid.reduce((s,o)=>s + (o.total||0),0);
+              const pendingTotal = pending.reduce((s,o)=>s + (o.total||0),0);
+              const today = new Date().toDateString();
+              const todayOrders = orders.filter(o => o.created_at && new Date(o.created_at).toDateString() === today);
+              const todaySales = todayOrders.filter(o=>o.status==='paid').reduce((s,o)=>s+(o.total||0),0);
+              const cashIn = cash.filter(c=>c.type==='in'||c.type==='sale').reduce((s,c)=>s+Number(c.amount||0),0);
+              const cashOut = cash.filter(c=>c.type==='out'||c.type==='expense').reduce((s,c)=>s+Number(c.amount||0),0);
+              const recent = orders.slice(0,5);
+              const isOpen = user && user.role === 'negocio' ? businessIsOpen(user.business) : null;
+
+              let adminBlock = '';
+              if(user && user.role === 'admin'){
+                const nRes = await apiFetch('/api/admin/negocios');
+                const negocios = nRes.ok ? await nRes.json() : [];
+                adminBlock = `
+                  <div class="dash-card">
+                    <div class="dash-label">Negocios</div>
+                    <div class="dash-value">${negocios.length}</div>
+                    <div class="small">Cuentas con rol negocio</div>
+                  </div>`;
+              }
+
+              dash.innerHTML = `
+                <div class="dash-grid">
+                  <div class="dash-card">
+                    <div class="dash-label">Pedidos</div>
+                    <div class="dash-value">${orders.length}</div>
+                    <div class="small">${todayOrders.length} hoy</div>
+                  </div>
+                  <div class="dash-card">
+                    <div class="dash-label">Pendientes</div>
+                    <div class="dash-value" style="color:var(--accent-hot)">${pending.length}</div>
+                    <div class="small">${fmtMoney(pendingTotal)} por cobrar</div>
+                  </div>
+                  <div class="dash-card">
+                    <div class="dash-label">Pagados</div>
+                    <div class="dash-value" style="color:var(--success)">${paid.length}</div>
+                    <div class="small">Hoy: ${fmtMoney(todaySales)}</div>
+                  </div>
+                  <div class="dash-card">
+                    <div class="dash-label">Ventas</div>
+                    <div class="dash-value">${fmtMoney(sales)}</div>
+                    <div class="small">Confirmadas</div>
+                  </div>
+                  <div class="dash-card">
+                    <div class="dash-label">Menú</div>
+                    <div class="dash-value">${menus.length}</div>
+                    <div class="small">${menus.filter(m=>m.available!==false).length} disponibles</div>
+                  </div>
+                  <div class="dash-card">
+                    <div class="dash-label">Inventario</div>
+                    <div class="dash-value">${inv.length}</div>
+                    <div class="small">Ítems registrados</div>
+                  </div>
+                  <div class="dash-card">
+                    <div class="dash-label">Caja neta</div>
+                    <div class="dash-value">${fmtMoney(cashIn - cashOut)}</div>
+                    <div class="small">In ${fmtMoney(cashIn)} · Out ${fmtMoney(cashOut)}</div>
+                  </div>
+                  ${isOpen === null ? '' : `
+                  <div class="dash-card">
+                    <div class="dash-label">Estado público</div>
+                    <div class="dash-value" style="font-size:1.35rem;color:${isOpen ? 'var(--success)' : 'var(--accent-hot)'}">${isOpen ? 'Disponible' : 'Cerrado'}</div>
+                    <div class="small">Lo ven tus clientes</div>
+                  </div>`}
+                  ${adminBlock}
+                </div>
+                <div class="dash-recent">
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px">
+                    <h4 style="margin:0">Pedidos recientes</h4>
+                    <button class="btn btn-ghost" type="button" id="dashGoOrders">Ver todos</button>
+                  </div>
+                  ${recent.length ? `<table style="width:100%;border-collapse:collapse">
+                    <thead><tr>
+                      <th style="text-align:left;padding:8px">ID</th>
+                      <th style="text-align:left;padding:8px">Cliente</th>
+                      <th style="text-align:left;padding:8px">Total</th>
+                      <th style="text-align:left;padding:8px">Estado</th>
+                      <th style="text-align:left;padding:8px">Fecha</th>
+                    </tr></thead>
+                    <tbody>${recent.map(o=>`<tr>
+                      <td style="padding:8px;border-top:1px solid var(--line)">#${esc(o.id)}</td>
+                      <td style="padding:8px;border-top:1px solid var(--line)">${esc(o.customer_name || 'Anon')}</td>
+                      <td style="padding:8px;border-top:1px solid var(--line)">${fmtMoney(o.total)}</td>
+                      <td style="padding:8px;border-top:1px solid var(--line)" class="${o.status==='paid'?'status-paid':'status-pending'}">${esc(o.status)}</td>
+                      <td style="padding:8px;border-top:1px solid var(--line)" class="small">${esc(o.created_at ? new Date(o.created_at).toLocaleString() : '')}</td>
+                    </tr>`).join('')}</tbody>
+                  </table>` : '<div class="small">Aún no hay pedidos.</div>'}
+                </div>`;
+              const go = document.getElementById('dashGoOrders');
+              if(go) go.addEventListener('click', ()=> showSection('orders'));
+            }catch(e){ dash.innerHTML='Error cargando dashboard: ' + e.message; }
+          };
+          renderDash();
+          const refresh = document.getElementById('dashRefresh');
+          if(refresh) refresh.addEventListener('click', renderDash);
         }
-        if(list) { list.style.display='block'; load(); }
+        if(list) list.style.display='none';
       } else if(section === 'orders'){
         if(list) { list.style.display='block'; load(); }
       } else if(section === 'negocios'){
@@ -887,7 +1002,7 @@
     const sidebarLogout = document.getElementById('sidebarLogout'); if(sidebarLogout) sidebarLogout.addEventListener('click', (e)=>{ e.preventDefault(); setToken(null); setUser(null); load(); });
 
     updateAuthUI();
-    load();
+    load().then(()=>{ if(getToken() && getUser() && (getUser().role==='negocio' || getUser().role==='admin')) showSection('dashboard'); });
     const openBtn = document.getElementById('openStatusBtn');
     if(openBtn) openBtn.addEventListener('click', toggleBusinessOpen);
   </script>
