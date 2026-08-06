@@ -62,14 +62,14 @@ html[data-theme="dark"] .lp-nav-cta{background:var(--accent)!important;color:#04
   position:absolute;inset:0;z-index:0;
   background:
     linear-gradient(180deg, rgba(12,18,16,0.15) 0%, rgba(12,18,16,0.55) 55%, rgba(12,18,16,0.82) 100%),
-    url("https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=2000&q=80") center/cover no-repeat;
+    url("https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=2000&q=80") center/cover no-repeat;
   transform: translate3d(0,0,0) scale(1.08);
   will-change: transform;
 }
 html:not([data-theme="dark"]) .lp-hero-media{
   background:
     linear-gradient(180deg, rgba(243,239,230,0.25) 0%, rgba(20,32,27,0.45) 48%, rgba(20,32,27,0.78) 100%),
-    url("https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=2000&q=80") center/cover no-repeat;
+    url("https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=2000&q=80") center/cover no-repeat;
 }
 .lp-hero-orb{
   position:absolute;border-radius:50%;filter:blur(2px);pointer-events:none;z-index:1;
