@@ -751,6 +751,128 @@ app.get('/api/cash', requireNegocio, (req, res) => {
   res.json(db.cash.filter(c => c.ownerId === req.user.id));
 });
 
+function reportDateInRange(iso, from, to) {
+  if (!from && !to) return true;
+  if (!iso) return false;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return false;
+  if (from) {
+    const start = new Date(from);
+    start.setHours(0, 0, 0, 0);
+    if (t < start.getTime()) return false;
+  }
+  if (to) {
+    const end = new Date(to);
+    end.setHours(23, 59, 59, 999);
+    if (t > end.getTime()) return false;
+  }
+  return true;
+}
+
+app.get('/api/reports', requireNegocio, (req, res) => {
+  db = readDB();
+  const type = String(req.query.type || 'orders').toLowerCase();
+  const from = req.query.from ? String(req.query.from) : '';
+  const to = req.query.to ? String(req.query.to) : '';
+  const ownerId = req.user.id;
+  const bizName = (req.user.business && req.user.business.name) || req.user.username || 'Negocio';
+
+  if (type === 'orders') {
+    const rows = db.orders
+      .filter(o => o.ownerId === ownerId && reportDateInRange(o.created_at, from, to))
+      .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))
+      .map(o => ({
+        id: o.id,
+        cliente: o.customer_name || 'Anon',
+        telefono: o.customer_phone || '',
+        items: (o.items || []).map(i => `${i.name} x${i.qty}`).join('; '),
+        total: Number(o.total || 0),
+        estado: o.status,
+        creado: o.created_at || '',
+        pagado: o.paid_at || ''
+      }));
+    return res.json({ type, from, to, business: bizName, generated_at: new Date().toISOString(), rows, summary: {
+      pedidos: rows.length,
+      pagados: rows.filter(r => r.estado === 'paid').length,
+      pendientes: rows.filter(r => r.estado !== 'paid').length,
+      ventas: rows.filter(r => r.estado === 'paid').reduce((s, r) => s + r.total, 0),
+      por_cobrar: rows.filter(r => r.estado !== 'paid').reduce((s, r) => s + r.total, 0)
+    }});
+  }
+
+  if (type === 'cash') {
+    const rows = db.cash
+      .filter(c => c.ownerId === ownerId && reportDateInRange(c.created_at, from, to))
+      .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))
+      .map(c => ({
+        id: c.id,
+        tipo: c.type,
+        monto: Number(c.amount || 0),
+        nota: c.note || '',
+        fecha: c.created_at || ''
+      }));
+    const inflow = rows.filter(r => r.tipo === 'in' || r.tipo === 'sale').reduce((s, r) => s + r.monto, 0);
+    const outflow = rows.filter(r => r.tipo === 'out' || r.tipo === 'expense').reduce((s, r) => s + r.monto, 0);
+    return res.json({ type, from, to, business: bizName, generated_at: new Date().toISOString(), rows, summary: {
+      movimientos: rows.length,
+      ingresos: inflow,
+      egresos: outflow,
+      neto: inflow - outflow
+    }});
+  }
+
+  if (type === 'inventory') {
+    const rows = db.inventories
+      .filter(i => i.ownerId === ownerId)
+      .map(i => ({
+        id: i.id,
+        nombre: i.name,
+        cantidad: Number(i.qty || 0),
+        unidad: i.unit || ''
+      }));
+    return res.json({ type, from, to, business: bizName, generated_at: new Date().toISOString(), rows, summary: {
+      items: rows.length,
+      unidades: rows.reduce((s, r) => s + r.cantidad, 0)
+    }});
+  }
+
+  if (type === 'sales') {
+    const paid = db.orders.filter(o =>
+      o.ownerId === ownerId &&
+      o.status === 'paid' &&
+      reportDateInRange(o.paid_at || o.created_at, from, to)
+    );
+    const byDay = {};
+    const byProduct = {};
+    paid.forEach(o => {
+      const dayKey = (o.paid_at || o.created_at || '').slice(0, 10) || 'sin-fecha';
+      if (!byDay[dayKey]) byDay[dayKey] = { fecha: dayKey, pedidos: 0, total: 0 };
+      byDay[dayKey].pedidos += 1;
+      byDay[dayKey].total += Number(o.total || 0);
+      (o.items || []).forEach(it => {
+        const name = it.name || 'Item';
+        if (!byProduct[name]) byProduct[name] = { producto: name, cantidad: 0, total: 0 };
+        byProduct[name].cantidad += Number(it.qty || 0);
+        byProduct[name].total += Number(it.price || 0) * Number(it.qty || 0);
+      });
+    });
+    const days = Object.values(byDay).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+    const products = Object.values(byProduct).sort((a, b) => b.total - a.total);
+    return res.json({
+      type, from, to, business: bizName, generated_at: new Date().toISOString(),
+      rows: days,
+      products,
+      summary: {
+        pedidos_pagados: paid.length,
+        ventas: paid.reduce((s, o) => s + Number(o.total || 0), 0),
+        productos: products.length
+      }
+    });
+  }
+
+  return res.status(400).json({ error: 'type must be orders, cash, inventory or sales' });
+});
+
 app.post('/api/cash', requireNegocio, async (req, res) => {
   const { type, amount, note } = req.body || {};
   if (!type || typeof amount === 'undefined') return res.status(400).json({ error: 'type and amount required' });

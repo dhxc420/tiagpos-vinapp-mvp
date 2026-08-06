@@ -62,6 +62,7 @@
             <li><a href="#" data-section="inventory" class="side-link">📦 Inventario</a></li>
             <li><a href="#" data-section="menu" class="side-link">🍽️ Menú</a></li>
             <li><a href="#" data-section="cash" class="side-link">💵 Caja</a></li>
+            <li><a href="#" data-section="reports" class="side-link">📊 Reportes</a></li>
             <li><a href="#" data-section="profile" class="side-link">⚙️ Perfil / Negocio</a></li>
             <li><a href="/" class="side-link show-sm">← Volver al sitio</a></li>
             <li><a href="#" id="sidebarLogout" class="side-link" style="color:#b91c1c">🚪 Cerrar sesión</a></li>
@@ -1076,6 +1077,201 @@
             loadCash();
           });
         }
+      } else if(section === 'reports'){
+        if(detail){
+          detail.style.display='block';
+          const today = new Date();
+          const toVal = today.toISOString().slice(0,10);
+          const fromDate = new Date(today); fromDate.setDate(fromDate.getDate() - 30);
+          const fromVal = fromDate.toISOString().slice(0,10);
+          detail.innerHTML = `
+            <div class="dash-head">
+              <div>
+                <h3 style="margin:0">Reportes</h3>
+                <p class="small" style="margin:6px 0 0">Genera reportes y exporta a Excel (.xlsx)</p>
+              </div>
+            </div>
+            <div class="report-form">
+              <label>Tipo
+                <select id="reportType">
+                  <option value="orders">Pedidos</option>
+                  <option value="sales">Ventas (pagados)</option>
+                  <option value="cash">Caja</option>
+                  <option value="inventory">Inventario</option>
+                </select>
+              </label>
+              <label>Desde
+                <input id="reportFrom" type="date" value="${fromVal}" />
+              </label>
+              <label>Hasta
+                <input id="reportTo" type="date" value="${toVal}" />
+              </label>
+              <div class="report-actions">
+                <button id="reportGenerate" class="btn" type="button">Generar</button>
+                <button id="reportExport" class="btn btn-ghost" type="button" disabled>Exportar Excel</button>
+              </div>
+            </div>
+            <div id="reportMsg" class="small inline-msg" style="display:none;margin-top:10px"></div>
+            <div id="reportSummary" class="report-summary" style="display:none"></div>
+            <div id="reportPreview" class="report-preview" style="margin-top:14px">Elige un tipo y pulsa Generar.</div>
+          `;
+
+          let lastReport = null;
+
+          function reportColumns(type){
+            if(type === 'orders') return [
+              ['id','ID'],['cliente','Cliente'],['telefono','Teléfono'],['items','Items'],
+              ['total','Total'],['estado','Estado'],['creado','Creado'],['pagado','Pagado']
+            ];
+            if(type === 'cash') return [
+              ['id','ID'],['tipo','Tipo'],['monto','Monto'],['nota','Nota'],['fecha','Fecha']
+            ];
+            if(type === 'inventory') return [
+              ['id','ID'],['nombre','Nombre'],['cantidad','Cantidad'],['unidad','Unidad']
+            ];
+            return [['fecha','Fecha'],['pedidos','Pedidos'],['total','Total']];
+          }
+
+          function renderReportSummary(data){
+            const box = document.getElementById('reportSummary');
+            const s = data.summary || {};
+            const chips = Object.keys(s).map(k=>{
+              const label = k.replace(/_/g,' ');
+              let val = s[k];
+              if(typeof val === 'number' && /venta|cobrar|ingreso|egreso|neto|total|monto/i.test(k)) val = fmtMoney(val);
+              return `<div class="report-chip"><span>${esc(label)}</span><strong>${esc(val)}</strong></div>`;
+            });
+            box.innerHTML = chips.join('') || '';
+            box.style.display = chips.length ? 'grid' : 'none';
+          }
+
+          function renderReportTable(data){
+            const preview = document.getElementById('reportPreview');
+            const cols = reportColumns(data.type);
+            const rows = data.rows || [];
+            if(!rows.length){
+              preview.innerHTML = '<div class="small">Sin datos para el rango seleccionado.</div>';
+              return;
+            }
+            let extra = '';
+            if(data.type === 'sales' && data.products && data.products.length){
+              extra = `<h4 style="margin:18px 0 8px">Por producto</h4>
+                <div class="table-scroll"><table class="report-table">
+                  <thead><tr><th>Producto</th><th>Cantidad</th><th>Total</th></tr></thead>
+                  <tbody>${data.products.map(p=>`<tr>
+                    <td>${esc(p.producto)}</td><td>${esc(p.cantidad)}</td><td>${fmtMoney(p.total)}</td>
+                  </tr>`).join('')}</tbody>
+                </table></div>`;
+            }
+            preview.innerHTML = `
+              <div class="small" style="margin-bottom:8px">${esc(data.business || '')} · ${esc(data.rows.length)} filas · ${esc(new Date(data.generated_at).toLocaleString())}</div>
+              <div class="table-scroll"><table class="report-table">
+                <thead><tr>${cols.map(c=>`<th>${esc(c[1])}</th>`).join('')}</tr></thead>
+                <tbody>${rows.map(r=>`<tr>${cols.map(c=>{
+                  const key = c[0]; let v = r[key];
+                  if(typeof v === 'number' && (key==='total'||key==='monto')) v = fmtMoney(v);
+                  else if((key==='creado'||key==='pagado'||key==='fecha') && v){
+                    v = /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? v : new Date(v).toLocaleString();
+                  }
+                  return `<td>${esc(v==null?'':v)}</td>`;
+                }).join('')}</tr>`).join('')}</tbody>
+              </table></div>${extra}`;
+          }
+
+          async function ensureXlsx(){
+            if(window.XLSX) return window.XLSX;
+            await new Promise((resolve, reject)=>{
+              const s = document.createElement('script');
+              s.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+              s.onload = resolve;
+              s.onerror = ()=> reject(new Error('No se pudo cargar la librería Excel'));
+              document.head.appendChild(s);
+            });
+            if(!window.XLSX) throw new Error('XLSX no disponible');
+            return window.XLSX;
+          }
+
+          function exportReport(data){
+            return ensureXlsx().then(XLSX=>{
+              const wb = XLSX.utils.book_new();
+              const mainRows = (data.rows || []).map(r=>{
+                const out = {};
+                reportColumns(data.type).forEach(([key, label])=>{ out[label] = r[key]; });
+                return out;
+              });
+              const ws = XLSX.utils.json_to_sheet(mainRows.length ? mainRows : [{ Info: 'Sin datos' }]);
+              XLSX.utils.book_append_sheet(wb, ws, data.type === 'sales' ? 'Ventas_dia' : 'Datos');
+              if(data.type === 'sales' && data.products && data.products.length){
+                const prodRows = data.products.map(p=>({ Producto: p.producto, Cantidad: p.cantidad, Total: p.total }));
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(prodRows), 'Por_producto');
+              }
+              if(data.summary){
+                const sumRows = Object.keys(data.summary).map(k=>({ Metrica: k, Valor: data.summary[k] }));
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sumRows), 'Resumen');
+              }
+              const stamp = new Date().toISOString().slice(0,10);
+              const safeBiz = String(data.business || 'reporte').replace(/[^\w\-]+/g,'_').slice(0,40);
+              XLSX.writeFile(wb, `${safeBiz}_${data.type}_${stamp}.xlsx`);
+            });
+          }
+
+          document.getElementById('reportGenerate').addEventListener('click', async ()=>{
+            const type = document.getElementById('reportType').value;
+            const from = document.getElementById('reportFrom').value;
+            const to = document.getElementById('reportTo').value;
+            const btn = document.getElementById('reportGenerate');
+            const exportBtn = document.getElementById('reportExport');
+            btn.disabled = true; btn.textContent = 'Generando...';
+            exportBtn.disabled = true;
+            showInlineMessage('reportMsg','');
+            try{
+              const q = new URLSearchParams({ type });
+              if(type !== 'inventory'){
+                if(from) q.set('from', from);
+                if(to) q.set('to', to);
+              }
+              const res = await apiFetch('/api/reports?' + q.toString());
+              if(!res.ok){
+                const t = await res.json().catch(()=>({}));
+                throw new Error(t.error || 'No se pudo generar');
+              }
+              lastReport = await res.json();
+              renderReportSummary(lastReport);
+              renderReportTable(lastReport);
+              exportBtn.disabled = !(lastReport.rows && lastReport.rows.length);
+              showInlineMessage('reportMsg','Reporte listo','success');
+            }catch(err){
+              lastReport = null;
+              document.getElementById('reportSummary').style.display='none';
+              document.getElementById('reportPreview').innerHTML = '';
+              showInlineMessage('reportMsg', err.message || 'Error','error');
+            }finally{
+              btn.disabled = false; btn.textContent = 'Generar';
+            }
+          });
+
+          document.getElementById('reportExport').addEventListener('click', async ()=>{
+            if(!lastReport) return;
+            const btn = document.getElementById('reportExport');
+            btn.disabled = true; btn.textContent = 'Exportando...';
+            try{
+              await exportReport(lastReport);
+              showInlineMessage('reportMsg','Excel descargado','success');
+            }catch(err){
+              showInlineMessage('reportMsg', err.message || 'Error al exportar','error');
+            }finally{
+              btn.disabled = !(lastReport && lastReport.rows && lastReport.rows.length);
+              btn.textContent = 'Exportar Excel';
+            }
+          });
+
+          document.getElementById('reportType').addEventListener('change', (e)=>{
+            const inv = e.target.value === 'inventory';
+            document.getElementById('reportFrom').disabled = inv;
+            document.getElementById('reportTo').disabled = inv;
+          });
+        }
+        if(list) list.style.display='none';
       } else if(section === 'profile'){
         // open edit profile
         showEditForm();
