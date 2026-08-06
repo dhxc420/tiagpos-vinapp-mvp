@@ -809,26 +809,27 @@
                   ${adminBlock}
                 </div>
                 <div class="dash-recent">
-                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px">
+                  <div class="dash-recent-head">
                     <h4 style="margin:0">Pedidos recientes</h4>
                     <button class="btn btn-ghost" type="button" id="dashGoOrders">Ver todos</button>
                   </div>
-                  ${recent.length ? `<table style="width:100%;border-collapse:collapse">
-                    <thead><tr>
-                      <th style="text-align:left;padding:8px">ID</th>
-                      <th style="text-align:left;padding:8px">Cliente</th>
-                      <th style="text-align:left;padding:8px">Total</th>
-                      <th style="text-align:left;padding:8px">Estado</th>
-                      <th style="text-align:left;padding:8px">Fecha</th>
-                    </tr></thead>
-                    <tbody>${recent.map(o=>`<tr>
-                      <td style="padding:8px;border-top:1px solid var(--line)">#${esc(o.id)}</td>
-                      <td style="padding:8px;border-top:1px solid var(--line)">${esc(o.customer_name || 'Anon')}</td>
-                      <td style="padding:8px;border-top:1px solid var(--line)">${fmtMoney(o.total)}</td>
-                      <td style="padding:8px;border-top:1px solid var(--line)" class="${o.status==='paid'?'status-paid':'status-pending'}">${esc(o.status)}</td>
-                      <td style="padding:8px;border-top:1px solid var(--line)" class="small">${esc(o.created_at ? new Date(o.created_at).toLocaleString() : '')}</td>
-                    </tr>`).join('')}</tbody>
-                  </table>` : '<div class="small">Aún no hay pedidos.</div>'}
+                  ${recent.length ? `
+                  <div class="dash-order-list">
+                    ${recent.map(o=>{
+                      const when = o.created_at ? new Date(o.created_at) : null;
+                      const whenLabel = when ? when.toLocaleString(undefined,{dateStyle:'short',timeStyle:'short'}) : '';
+                      return `<article class="dash-order">
+                        <div class="dash-order-top">
+                          <strong>#${esc(o.id)} · ${esc(o.customer_name || 'Anon')}</strong>
+                          <span class="${o.status==='paid'?'status-paid':'status-pending'}">${esc(o.status)}</span>
+                        </div>
+                        <div class="dash-order-meta">
+                          <span>${fmtMoney(o.total)}</span>
+                          <span class="small">${esc(whenLabel)}</span>
+                        </div>
+                      </article>`;
+                    }).join('')}
+                  </div>` : '<div class="small">Aún no hay pedidos.</div>'}
                 </div>`;
               const go = document.getElementById('dashGoOrders');
               if(go) go.addEventListener('click', ()=> showSection('orders'));
