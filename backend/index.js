@@ -430,6 +430,7 @@ async function ensureMercaMono() {
   ];
   let user = db.users.find(u => u.username === USER || (u.business && u.business.slug === 'mercamono'));
   let changed = false;
+  const forceReset = process.env.MERCA_RESET === '1';
   if (!user) {
     user = {
       id: ++db.lastUserId,
@@ -453,6 +454,15 @@ async function ensureMercaMono() {
     console.log('Merca Mono user created:', USER);
   } else {
     user.username = USER;
+    if (forceReset) {
+      user.salt = salt;
+      user.hash = hash;
+      user.role = 'negocio';
+      // Google-only accounts get a local password again
+      if (!user.authProvider || user.authProvider === 'google') user.authProvider = 'local';
+      changed = true;
+      console.log('Merca Mono password reset:', USER);
+    }
     user.business = user.business || {};
     if (!user.business.name) { user.business.name = 'merca mono limonar 2'; changed = true; }
     if (user.business.store_kind !== 'market') { user.business.store_kind = 'market'; changed = true; }
