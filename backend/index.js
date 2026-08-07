@@ -710,7 +710,7 @@ app.post('/api/login', (req, res) => {
 
 app.post('/api/auth/google', async (req, res) => {
   try {
-    const { credential, role, business } = req.body || {};
+    const { credential, role, business, complete } = req.body || {};
     const google = await verifyGoogleIdToken(credential);
     db = readDB();
 
@@ -735,11 +735,22 @@ app.post('/api/auth/google', async (req, res) => {
       });
     }
 
-    const regRole = ['cliente', 'negocio'].includes(role) ? role : 'cliente';
+    // New Google user: ask frontend for role/business before creating the account
+    if (!complete) {
+      return res.json({
+        needs_registration: true,
+        email: google.email,
+        name: google.name || '',
+        message: 'Confirma tu rol para terminar el registro con Google'
+      });
+    }
+
+    const regRole = ['cliente', 'negocio'].includes(role) ? role : null;
+    if (!regRole) return res.status(400).json({ error: 'Selecciona un rol: cliente o negocio' });
     if (regRole === 'negocio') {
       if (!business || !business.name || !business.phone || !business.address) {
         return res.status(400).json({
-          error: 'Para negocio con Google completa nombre, teléfono y dirección antes de continuar',
+          error: 'Para negocio completa nombre, teléfono y dirección',
           needs_business: true
         });
       }
@@ -896,6 +907,30 @@ app.get('/api/admin/negocios', requireAdmin, (req, res) => {
       };
     });
   res.json(negocios);
+});
+
+app.get('/api/stores', (req, res) => {
+  db = readDB();
+  const stores = (db.users || [])
+    .filter(u => u.role === 'negocio' && u.business && u.business.slug)
+    .map(u => {
+      const b = u.business || {};
+      const kind = b.store_kind === 'market' ? 'market' : 'restaurant';
+      return {
+        id: u.id,
+        name: b.name || u.username,
+        slug: b.slug,
+        logo: b.logo || null,
+        banner: b.banner || null,
+        address: b.address || '',
+        phone: b.phone || '',
+        store_kind: kind,
+        is_open: typeof b.is_open === 'undefined' ? true : !!b.is_open,
+        public_url: `/b/${b.slug}`
+      };
+    })
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), 'es', { sensitivity: 'base' }));
+  res.json(stores);
 });
 
 app.get('/api/admin/status', requireAdmin, async (req, res) => {

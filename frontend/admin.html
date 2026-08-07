@@ -168,6 +168,7 @@
         </div>
 
         <div id="detail" class="card" style="display:none;margin-top:12px"></div>
+        <section id="clientHome" class="client-home" style="display:none" aria-label="Negocios disponibles"></section>
       </main>
     </div>
   </div>
@@ -217,6 +218,39 @@
       <div class="modal-actions">
         <button id="regCancel" class="btn btn-ghost">Cancelar</button>
         <button id="regSubmit" class="btn" style="margin-left:8px">Crear cuenta</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Google registration complete modal -->
+  <div id="googleRegOverlay" class="modal-overlay" style="display:none">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="googleRegTitle">
+      <h3 id="googleRegTitle">Termina tu registro con Google</h3>
+      <p class="small" style="margin:0 0 10px;color:var(--muted)">Elige tu rol y confirma los datos para activar la cuenta.</p>
+      <div class="form-row" style="margin-bottom:8px">
+        <input id="googleRegEmail" type="email" disabled />
+      </div>
+      <div class="form-row" style="margin-top:10px;align-items:center">
+        <div class="roles">
+          <label><input type="radio" name="googleRegRole" value="negocio" checked /> Negocio</label>
+          <label><input type="radio" name="googleRegRole" value="cliente" /> Cliente</label>
+        </div>
+      </div>
+      <div id="googleRegBusiness" style="margin-top:12px">
+        <div class="form-row" style="margin-bottom:8px">
+          <input id="googleRegBizName" placeholder="Nombre del negocio" />
+        </div>
+        <div class="form-row" style="margin-bottom:8px">
+          <input id="googleRegBizPhone" placeholder="Teléfono (ej. 573242281300)" />
+        </div>
+        <div class="form-row" style="margin-bottom:8px">
+          <input id="googleRegBizAddress" placeholder="Dirección" />
+        </div>
+      </div>
+      <div id="googleRegMsg" class="small inline-msg" style="display:none;margin-top:8px"></div>
+      <div class="modal-actions">
+        <button id="googleRegCancel" class="btn btn-ghost" type="button">Cancelar</button>
+        <button id="googleRegSubmit" class="btn" type="button">Completar registro</button>
       </div>
     </div>
   </div>
@@ -397,10 +431,23 @@
         if(meRes.ok){
           const me = await meRes.json();
           setUser(me);
+          if(me.role === 'cliente'){
+            showUnauthorized();
+            await renderClientHome();
+            return;
+          }
         }
       }catch(e){ /* ignore */ }
+      const current = getUser();
+      if(current && current.role === 'cliente'){
+        showUnauthorized();
+        await renderClientHome();
+        return;
+      }
       // token present -> show authorized UI
       showAuthorized();
+      const clientHome = document.getElementById('clientHome');
+      if(clientHome) clientHome.style.display = 'none';
       const state = document.getElementById('filterState').value;
       const rows = document.getElementById('rows'); rows.innerHTML = '<tr><td colspan="6">Cargando...</td></tr>';
       try{
@@ -545,7 +592,8 @@
         document.getElementById('loginUser').value=''; document.getElementById('loginPass').value='';
         showInlineMessage('loginMsg','Autenticación correcta', 'success');
         await load();
-        showSection('dashboard');
+        const u = getUser();
+        if(u && (u.role === 'negocio' || u.role === 'admin')) showSection('dashboard');
       }catch(err){ showInlineMessage('loginMsg','Login fallido: '+err.message, 'error'); }
       finally{ btn.disabled = false; btn.textContent = 'Entrar'; }
     }
@@ -632,42 +680,119 @@
       return !!(ov && ov.style.display !== 'none');
     }
 
+    let _pendingGoogleCredential = null;
+
+    function syncGoogleRegBusiness(){
+      const roleEl = document.querySelector('input[name="googleRegRole"]:checked');
+      const role = roleEl ? roleEl.value : 'negocio';
+      const box = document.getElementById('googleRegBusiness');
+      if(box) box.style.display = role === 'negocio' ? 'block' : 'none';
+    }
+
+    function showGoogleRegModal(profile){
+      profile = profile || {};
+      const ov = document.getElementById('googleRegOverlay');
+      const emailEl = document.getElementById('googleRegEmail');
+      if(emailEl) emailEl.value = profile.email || '';
+      const nameEl = document.getElementById('googleRegBizName');
+      if(nameEl && profile.name && !nameEl.value) nameEl.value = profile.name;
+      showInlineMessage('googleRegMsg', profile.message || 'Confirma tu rol para continuar', 'success');
+      const negocioRadio = document.querySelector('input[name="googleRegRole"][value="negocio"]');
+      if(negocioRadio) negocioRadio.checked = true;
+      syncGoogleRegBusiness();
+      if(ov) ov.style.display = 'flex';
+    }
+
+    function hideGoogleRegModal(){
+      const ov = document.getElementById('googleRegOverlay');
+      if(ov) ov.style.display = 'none';
+      _pendingGoogleCredential = null;
+      showInlineMessage('googleRegMsg','');
+    }
+
+    async function finishGoogleSession(data){
+      setToken(data.token);
+      setUser(data.user);
+      hideRegisterForm();
+      hideGoogleRegModal();
+      showInlineMessage('loginMsg', data.message || (data.created ? 'Te registraste con éxito en WhatsMenú' : 'Sesión iniciada'), 'success');
+      await load();
+      if(data.user && (data.user.role === 'negocio' || data.user.role === 'admin')){
+        showSection('dashboard');
+      }
+    }
+
+    async function completeGoogleRegistration(){
+      showInlineMessage('googleRegMsg','');
+      if(!_pendingGoogleCredential){
+        showInlineMessage('googleRegMsg','Sesión de Google expirada. Vuelve a intentarlo.', 'error');
+        return;
+      }
+      const roleEl = document.querySelector('input[name="googleRegRole"]:checked');
+      const role = roleEl ? roleEl.value : 'negocio';
+      const business = {
+        name: (document.getElementById('googleRegBizName') || {}).value || '',
+        phone: (document.getElementById('googleRegBizPhone') || {}).value || '',
+        address: (document.getElementById('googleRegBizAddress') || {}).value || '',
+        email: (document.getElementById('googleRegEmail') || {}).value || ''
+      };
+      if(role === 'negocio'){
+        if(!String(business.name).trim()){ showInlineMessage('googleRegMsg','Nombre del negocio requerido', 'error'); return }
+        if(!/^[0-9+]{7,20}$/.test(String(business.phone).trim())){ showInlineMessage('googleRegMsg','Teléfono inválido', 'error'); return }
+        if(!String(business.address).trim()){ showInlineMessage('googleRegMsg','Dirección requerida', 'error'); return }
+      }
+      const btn = document.getElementById('googleRegSubmit');
+      if(btn){ btn.disabled = true; btn.textContent = 'Creando...'; }
+      try{
+        const res = await fetch('/api/auth/google', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            credential: _pendingGoogleCredential,
+            complete: true,
+            role,
+            business: role === 'negocio' ? business : undefined
+          })
+        });
+        const data = await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(data.error || 'No se pudo completar el registro');
+        await finishGoogleSession(data);
+      }catch(err){
+        showInlineMessage('googleRegMsg', err.message || 'Error', 'error');
+      }finally{
+        if(btn){ btn.disabled = false; btn.textContent = 'Completar registro'; }
+      }
+    }
+
     async function handleGoogleCredential(response){
       const msgId = isRegisterOpen() ? 'regMsg' : 'loginMsg';
       showInlineMessage(msgId,'');
-      const { role, business } = getRegRoleAndBusiness();
-      if(isRegisterOpen() && role === 'negocio'){
-        if(!String(business.name).trim() || !String(business.phone).trim() || !String(business.address).trim()){
-          showInlineMessage('regMsg','Para negocio: completa nombre, teléfono y dirección, luego pulsa Google', 'error');
-          const bf = document.getElementById('businessFields'); if(bf) bf.style.display = 'block';
-          return;
-        }
-      }
       const loginBtn = document.getElementById('loginGoogleBtn');
       const regBtn = document.getElementById('regGoogleBtn');
       [loginBtn, regBtn].forEach(b=>{ if(b){ b.disabled = true; b.classList.add('is-loading'); } });
       try{
-        const payload = { credential: response.credential };
-        if(isRegisterOpen()){
-          payload.role = role;
-          if(role === 'negocio') payload.business = business;
-        } else {
-          payload.role = 'cliente';
-        }
+        _pendingGoogleCredential = response.credential;
         const res = await fetch('/api/auth/google', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({ credential: response.credential })
         });
         const data = await res.json().catch(()=>({}));
         if(!res.ok) throw new Error(data.error || 'Google falló');
-        setToken(data.token);
-        setUser(data.user);
-        hideRegisterForm();
-        showInlineMessage('loginMsg', data.message || (data.created ? 'Te registraste con éxito en WhatsMenú' : 'Sesión con Google iniciada'), 'success');
-        await load();
-        showSection('dashboard');
+
+        if(data.needs_registration){
+          hideRegisterForm();
+          showGoogleRegModal({
+            email: data.email,
+            name: data.name,
+            message: data.message
+          });
+          return;
+        }
+
+        await finishGoogleSession(data);
       }catch(err){
+        _pendingGoogleCredential = null;
         showInlineMessage(msgId, err.message || 'Google falló', 'error');
       }finally{
         [loginBtn, regBtn].forEach(b=>{ if(b){ b.disabled = false; b.classList.remove('is-loading'); } });
@@ -776,7 +901,8 @@
         hideConfirmForm();
         showInlineMessage('loginMsg', data.message || 'Cuenta confirmada con éxito', 'success');
         await load();
-        showSection('dashboard');
+        const u = getUser();
+        if(u && (u.role === 'negocio' || u.role === 'admin')) showSection('dashboard');
       }catch(err){
         showInlineMessage('confirmMsg', err.message || 'Error', 'error');
         if(tokenFromLink) showConfirmForm({ tip: err.message });
@@ -810,6 +936,10 @@
     document.getElementById('confirmSubmit').addEventListener('click', (e)=>{ e.preventDefault(); doConfirmAccount(); });
     document.getElementById('confirmResend').addEventListener('click', (e)=>{ e.preventDefault(); doResendConfirm(); });
     document.getElementById('confirmOverlay').addEventListener('click', (e)=>{ if(e.target && e.target.id === 'confirmOverlay') hideConfirmForm(); });
+    document.getElementById('googleRegSubmit').addEventListener('click', (e)=>{ e.preventDefault(); completeGoogleRegistration(); });
+    document.getElementById('googleRegCancel').addEventListener('click', (e)=>{ e.preventDefault(); hideGoogleRegModal(); });
+    document.getElementById('googleRegOverlay').addEventListener('click', (e)=>{ if(e.target && e.target.id === 'googleRegOverlay') hideGoogleRegModal(); });
+    document.querySelectorAll('input[name="googleRegRole"]').forEach(r => r.addEventListener('change', syncGoogleRegBusiness));
 
     // handle role change -> show/hide business fields
     document.querySelectorAll('input[name="regRole"]').forEach(r=> r.addEventListener('change', ()=>{
@@ -1122,15 +1252,35 @@
           updateOpenStatusUI(user);
           const post = document.getElementById('postAuthControls'); if(post) post.style.display = 'block';
           const list = document.getElementById('list'); if(list) list.style.display = 'block';
+          const controls = document.getElementById('controls'); if(controls) controls.style.display = '';
+          const clientHome = document.getElementById('clientHome');
+          if(clientHome){ clientHome.style.display = 'none'; clientHome.innerHTML = ''; }
           const d = document.getElementById('detail'); if(d) d.style.display='none';
-        } else {
-          // not a negocio: hide admin areas
-          if(layout){ layout.classList.add('is-guest'); layout.classList.remove('is-auth'); }
+          const title = document.querySelector('.admin-title');
+          const subtitle = document.querySelector('.admin-subtitle');
+          if(title) title.textContent = 'WhatsMenú — Panel';
+          if(subtitle) subtitle.textContent = 'Operación del negocio';
+          if(layout) layout.classList.remove('is-client');
+        } else if(user.role === 'cliente'){
+          if(layout){ layout.classList.add('is-guest'); layout.classList.remove('is-auth'); layout.classList.add('is-client'); }
           if(menuToggle) menuToggle.style.display = 'none';
           closeMobileSidebar();
           const post = document.getElementById('postAuthControls'); if(post) post.style.display = 'none';
           const list = document.getElementById('list'); if(list) list.style.display = 'none';
-          const d = document.getElementById('detail'); d.style.display='block'; d.innerHTML = '<div class="card">Acceso denegado: este panel es solo para cuentas con rol "negocio" o "admin".</div>';
+          const controls = document.getElementById('controls'); if(controls) controls.style.display = 'none';
+          const d = document.getElementById('detail'); if(d) d.style.display = 'none';
+          const title = document.querySelector('.admin-title');
+          const subtitle = document.querySelector('.admin-subtitle');
+          if(title) title.textContent = 'WhatsMenú';
+          if(subtitle) subtitle.textContent = 'Elige un negocio para pedir';
+          renderClientHome();
+        } else {
+          if(layout){ layout.classList.add('is-guest'); layout.classList.remove('is-auth'); layout.classList.remove('is-client'); }
+          if(menuToggle) menuToggle.style.display = 'none';
+          closeMobileSidebar();
+          const post = document.getElementById('postAuthControls'); if(post) post.style.display = 'none';
+          const list = document.getElementById('list'); if(list) list.style.display = 'none';
+          const d = document.getElementById('detail'); if(d){ d.style.display='block'; d.innerHTML = '<div class="card">Acceso no disponible para este tipo de cuenta.</div>'; }
         }
 
       } else {
@@ -1141,10 +1291,17 @@
         if(headerSession) headerSession.style.display = 'none';
         document.getElementById('who').textContent='';
         if(bizEl){ bizEl.innerHTML=''; bizEl.style.display='none'; }
+        const clientHome = document.getElementById('clientHome');
+        if(clientHome){ clientHome.style.display = 'none'; clientHome.innerHTML = ''; }
+        const controls = document.getElementById('controls'); if(controls) controls.style.display = '';
+        const title = document.querySelector('.admin-title');
+        const subtitle = document.querySelector('.admin-subtitle');
+        if(title) title.textContent = 'WhatsMenú — Panel';
+        if(subtitle) subtitle.textContent = 'Operación del negocio';
         // hide post-auth areas
         const post = document.getElementById('postAuthControls'); if(post) post.style.display = 'none';
         const list = document.getElementById('list'); if(list) list.style.display = 'none';
-        if(layout){ layout.classList.add('is-guest'); layout.classList.remove('is-auth'); }
+        if(layout){ layout.classList.add('is-guest'); layout.classList.remove('is-auth'); layout.classList.remove('is-client'); }
         if(menuToggle) menuToggle.style.display = 'none';
         closeMobileSidebar();
       }
@@ -1153,6 +1310,66 @@
     function businessIsOpen(b){
       if(!b) return true;
       return typeof b.is_open === 'undefined' ? true : !!b.is_open;
+    }
+
+    function storeKindLabel(kind){
+      return kind === 'market' ? 'Mini mercado' : 'Restaurante';
+    }
+
+    function storeInitials(name){
+      const parts = String(name || 'N').trim().split(/\s+/).filter(Boolean);
+      const letters = ((parts[0] && parts[0][0]) || 'N') + ((parts[1] && parts[1][0]) || '');
+      return letters.toUpperCase();
+    }
+
+    let _clientHomeReq = 0;
+    async function renderClientHome(){
+      const home = document.getElementById('clientHome');
+      if(!home) return;
+      const reqId = ++_clientHomeReq;
+      home.style.display = 'block';
+      home.innerHTML = `
+        <header class="client-home-head">
+          <h2>Negocios cerca de ti</h2>
+          <p>Elige un restaurante o mini mercado para ver el menú y hacer tu pedido.</p>
+        </header>
+        <div class="client-store-grid" id="clientStoreGrid">
+          <div class="client-store-empty">Cargando negocios...</div>
+        </div>`;
+      try{
+        const res = await fetch('/api/stores');
+        if(reqId !== _clientHomeReq) return;
+        const stores = res.ok ? await res.json() : [];
+        if(reqId !== _clientHomeReq) return;
+        const grid = document.getElementById('clientStoreGrid');
+        if(!grid) return;
+        if(!stores.length){
+          grid.innerHTML = '<div class="client-store-empty">Aún no hay negocios publicados. Vuelve pronto.</div>';
+          return;
+        }
+        grid.innerHTML = stores.map(s=>{
+          const kind = s.store_kind === 'market' ? 'market' : 'restaurant';
+          const open = !!s.is_open;
+          const url = safeUrl(s.public_url || ('/b/' + s.slug));
+          const logo = s.logo ? `<img src="${safeUrl(s.logo)}" alt="" class="client-store-logo" />`
+            : `<div class="client-store-logo is-fallback" aria-hidden="true">${esc(storeInitials(s.name))}</div>`;
+          return `
+            <article class="client-store-tile ${open ? 'is-open' : 'is-closed'}">
+              <div class="client-store-icon">${logo}</div>
+              <div class="client-store-meta">
+                <span class="client-store-kind">${esc(storeKindLabel(kind))}</span>
+                <h3>${esc(s.name)}</h3>
+                <p class="client-store-status">${open ? 'Disponible ahora' : 'Cerrado por ahora'}</p>
+                ${s.address ? `<p class="client-store-addr">${esc(s.address)}</p>` : ''}
+              </div>
+              <a class="btn btn-primary client-store-cta" href="${url}">Ver menú y pedir</a>
+            </article>`;
+        }).join('');
+      }catch(err){
+        if(reqId !== _clientHomeReq) return;
+        const grid = document.getElementById('clientStoreGrid');
+        if(grid) grid.innerHTML = '<div class="client-store-empty">No se pudieron cargar los negocios. Intenta de nuevo.</div>';
+      }
     }
 
     function updateOpenStatusUI(user){
