@@ -289,7 +289,7 @@ async function ensureAdmin() {
       salt,
       hash,
       role: 'admin',
-      business: { name: 'Tiagoo Menú Admin', slug: 'admin' }
+      business: { name: 'WhatsMenú Admin', slug: 'admin' }
     });
     await writeDB(db);
     console.log('Admin user created:', ADMIN_USER);

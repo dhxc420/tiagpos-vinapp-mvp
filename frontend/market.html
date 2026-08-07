@@ -11,7 +11,7 @@
 <body class="market-body">
   <div class="container">
     <header class="header">
-      <div class="logo"><div class="brand">Tiagoo Menú</div></div>
+      <div class="logo"><div class="brand">WhatsMenú</div></div>
       <div style="display:flex;align-items:center;gap:12px">
         <div id="bizContact" class="small"></div>
         <button class="theme-toggle" type="button" data-theme-toggle aria-label="Cambiar tema">
@@ -123,7 +123,7 @@
         const data = await res.json();
         BUSINESS = data.business || {};
         IS_OPEN = businessIsOpen(BUSINESS);
-        document.title = (BUSINESS.name || 'Mercado') + ' — Tiagoo Menú';
+        document.title = (BUSINESS.name || 'Mercado') + ' — WhatsMenú';
         document.getElementById('bizName').textContent = BUSINESS.name || data.username || 'Mercado';
         document.getElementById('bizDesc').textContent = BUSINESS.store_kind === 'market'
           ? 'Mini supermercado · pide por WhatsApp'

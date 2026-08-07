@@ -1,4 +1,4 @@
-Tiagoo Menú / Vinapp-MVP
+WhatsMenú / Vinapp-MVP
 
 Proyecto local MVP inspirado en Vinapp. Contiene frontend estático (frontend/) y backend Express con DB en archivo (backend/db.json).
 
