@@ -42,7 +42,11 @@ const orderSchema = new mongoose.Schema({
   proof_token: String,
   created_at: Date,
   paid_at: Date,
-  proof_submitted_at: Date
+  proof_submitted_at: Date,
+  dispatched_at: Date,
+  delivered_at: Date,
+  cancelled_at: Date,
+  cancel_reason: String
 }, { timestamps: true });
 
 const invSchema = new mongoose.Schema({

@@ -347,6 +347,7 @@ body.is-logged-out{overflow:auto}
 .order-detail-badge.is-pending{background:rgba(232,93,4,0.12);color:var(--accent-hot)}
 .order-detail-badge.is-delivery{background:rgba(37,99,235,0.12);color:#2563eb}
 .order-detail-badge.is-delivered{background:var(--accent-soft);color:var(--success)}
+.order-detail-badge.is-cancelled{background:rgba(180,35,24,0.12);color:var(--danger)}
 .order-detail-body{display:flex;flex-direction:column;gap:12px}
 .order-detail-row{
   display:flex;justify-content:space-between;align-items:baseline;gap:12px;
@@ -383,6 +384,7 @@ body.is-logged-out{overflow:auto}
 .status-pending{color:var(--accent-hot);font-weight:700}
 .status-delivery{color:#2563eb;font-weight:700}
 .status-delivered{color:var(--success);font-weight:700}
+.status-cancelled{color:var(--danger);font-weight:700}
 .order-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .btn-dispatch{
   background:#1d4ed8;color:#fff;border-color:#1d4ed8;
@@ -394,6 +396,14 @@ html[data-theme="dark"] .btn-dispatch{color:#fff}
 }
 .btn-deliver:hover{filter:brightness(1.05)}
 html[data-theme="dark"] .btn-deliver{color:#fff}
+.btn-cancel-order{
+  background:transparent;color:var(--danger);border-color:color-mix(in srgb, var(--danger) 45%, var(--line));
+}
+.btn-cancel-order:hover{background:rgba(180,35,24,0.1)}
+#cancelOrderReason{
+  margin-top:6px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);
+  background:var(--bg);color:var(--ink);font:inherit;
+}
 
 #sidebar{background:var(--bg-elev);box-shadow:var(--shadow);border-radius:12px;border:1px solid var(--line)}
 .side-link{display:block;padding:10px 12px;border-radius:8px;color:var(--ink);text-decoration:none;font-weight:700}

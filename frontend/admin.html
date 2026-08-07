@@ -152,6 +152,7 @@
                 <option value="paid">Pagados</option>
                 <option value="out_for_delivery">En domicilio</option>
                 <option value="delivered">Entregados</option>
+                <option value="cancelled">Cancelados</option>
               </select>
             </label>
             <button id="reload" class="btn btn-ghost" style="margin-left:12px">Refrescar</button>
@@ -346,7 +347,26 @@
         <button id="orderDetailClose" class="btn btn-ghost" type="button">Cerrar</button>
         <button id="orderDetailDispatch" class="btn" type="button" style="display:none">Confirmar y enviar a domicilio</button>
         <button id="orderDetailDeliver" class="btn btn-deliver" type="button" style="display:none">Confirmar entrega a domicilio</button>
+        <button id="orderDetailCancel" class="btn btn-cancel-order" type="button" style="display:none">Cancelar pedido</button>
         <button id="orderDetailConfirm" class="btn btn-primary" type="button" style="display:none">Confirmar pago</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cancel order modal -->
+  <div id="cancelOrderOverlay" class="modal-overlay" style="display:none">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cancelOrderTitle">
+      <h3 id="cancelOrderTitle">Cancelar pedido</h3>
+      <p class="small" style="margin:0 0 10px;color:var(--muted)">Indica el motivo de la cancelación. Se guardará en el pedido.</p>
+      <input type="hidden" id="cancelOrderId" />
+      <label class="login-field" for="cancelOrderReason">
+        <span>Motivo</span>
+        <textarea id="cancelOrderReason" rows="3" placeholder="Ej. Cliente canceló, sin stock, dirección incorrecta..." style="width:100%;resize:vertical"></textarea>
+      </label>
+      <div id="cancelOrderMsg" class="small inline-msg" style="display:none;margin-top:8px"></div>
+      <div class="modal-actions">
+        <button id="cancelOrderClose" class="btn btn-ghost" type="button">Volver</button>
+        <button id="cancelOrderSubmit" class="btn btn-cancel-order" type="button">Confirmar cancelación</button>
       </div>
     </div>
   </div>
@@ -467,6 +487,7 @@
       if(status === 'paid') return 'status-paid';
       if(status === 'delivered') return 'status-delivered';
       if(status === 'out_for_delivery') return 'status-delivery';
+      if(status === 'cancelled') return 'status-cancelled';
       if(status === 'pending') return 'status-pending';
       return '';
     }
@@ -564,18 +585,20 @@
           const items = o.items.map(i=>`${esc(i.name)} x${esc(i.qty)}`).join(', ');
           const showDispatch = canDispatch && o.status !== 'out_for_delivery' && o.status !== 'delivered' && o.status !== 'cancelled';
           const showDeliver = canDispatch && o.status === 'out_for_delivery';
+          const showCancel = canDispatch && o.status !== 'cancelled' && o.status !== 'delivered';
           return `<tr>
             <td>#${esc(o.id)}</td>
             <td>${esc(o.customer_name || 'Anon')}<div class="small">${esc(new Date(o.created_at).toLocaleString())}</div></td>
             <td>${items}</td>
             <td>${fmtMoney(o.total)}</td>
-            <td class="${orderStatusClass(o.status)}">${esc(orderStatusLabel(o.status))}</td>
+            <td class="${orderStatusClass(o.status)}">${esc(orderStatusLabel(o.status))}${o.status==='cancelled'&&o.cancel_reason?`<div class="small">${esc(o.cancel_reason)}</div>`:''}</td>
             <td class="order-actions">
               <button class="btn" onclick="view(${Number(o.id)})">Ver</button>
               <button class="btn btn-ghost" onclick="sendOrderWA(${Number(o.id)})">Enviar WA</button>
               ${showDispatch ? `<button class="btn btn-dispatch" onclick="dispatchOrder(${Number(o.id)})">Confirmar y enviar a domicilio</button>` : ''}
               ${showDeliver ? `<button class="btn btn-deliver" onclick="confirmDelivery(${Number(o.id)})">Confirmar entrega a domicilio</button>` : ''}
-              ${o.status!=='paid' && o.status!=='out_for_delivery' && o.status!=='delivered' ? `<button class="btn" style="background:#059669" onclick="markPaid(${Number(o.id)})">Marcar como pagado</button>` : ''}
+              ${showCancel ? `<button class="btn btn-cancel-order" onclick="openCancelOrder(${Number(o.id)})">Cancelar pedido</button>` : ''}
+              ${o.status!=='paid' && o.status!=='out_for_delivery' && o.status!=='delivered' && o.status!=='cancelled' ? `<button class="btn" style="background:#059669" onclick="markPaid(${Number(o.id)})">Marcar como pagado</button>` : ''}
             </td>
           </tr>`
         }).join('');
@@ -599,6 +622,7 @@
       document.getElementById('orderDetailConfirm').style.display = 'none';
       document.getElementById('orderDetailDispatch').style.display = 'none';
       document.getElementById('orderDetailDeliver').style.display = 'none';
+      document.getElementById('orderDetailCancel').style.display = 'none';
       document.getElementById('orderDetailProofLink').style.display = 'none';
       document.getElementById('orderDetailPhoneRow').style.display = 'none';
       const proofInput = document.getElementById('proof_input');
@@ -641,8 +665,9 @@
       const paid = o.status === 'paid';
       const delivering = o.status === 'out_for_delivery';
       const delivered = o.status === 'delivered';
+      const cancelled = o.status === 'cancelled';
       statusEl.textContent = orderStatusLabel(o.status);
-      statusEl.className = 'order-detail-badge ' + (delivered ? 'is-delivered' : (paid ? 'is-paid' : (delivering ? 'is-delivery' : 'is-pending')));
+      statusEl.className = 'order-detail-badge ' + (cancelled ? 'is-cancelled' : (delivered ? 'is-delivered' : (paid ? 'is-paid' : (delivering ? 'is-delivery' : 'is-pending'))));
 
       document.getElementById('orderDetailItems').innerHTML = (o.items || []).map(i=>
         `<li><span>${esc(i.name)} <em>×${esc(i.qty)}</em></span><strong>${fmtMoney(i.price * (i.qty || 1))}</strong></li>`
@@ -652,6 +677,9 @@
       if(o.proof_url){
         proofBox.style.display = 'block';
         proofBox.innerHTML = `<a href="${safeUrl(o.proof_url)}" target="_blank" rel="noopener">Ver comprobante</a>`;
+      } else if(cancelled && o.cancel_reason){
+        proofBox.style.display = 'block';
+        proofBox.innerHTML = `<div class="small"><strong>Motivo cancelación:</strong> ${esc(o.cancel_reason)}</div>`;
       } else {
         proofBox.style.display = 'none';
         proofBox.innerHTML = '';
@@ -661,13 +689,16 @@
       const confirmBtn = document.getElementById('orderDetailConfirm');
       const dispatchBtn = document.getElementById('orderDetailDispatch');
       const deliverBtn = document.getElementById('orderDetailDeliver');
+      const cancelBtn = document.getElementById('orderDetailCancel');
       const user = getUser();
       const isStaff = user && (user.role === 'negocio' || user.role === 'admin');
       const canDispatch = isStaff && o.status !== 'out_for_delivery' && o.status !== 'delivered' && o.status !== 'cancelled';
       const canDeliver = isStaff && o.status === 'out_for_delivery';
+      const canCancel = isStaff && o.status !== 'cancelled' && o.status !== 'delivered';
       if(dispatchBtn) dispatchBtn.style.display = canDispatch ? 'inline-flex' : 'none';
       if(deliverBtn) deliverBtn.style.display = canDeliver ? 'inline-flex' : 'none';
-      if(!paid && !delivering && !delivered){
+      if(cancelBtn) cancelBtn.style.display = canCancel ? 'inline-flex' : 'none';
+      if(!paid && !delivering && !delivered && !cancelled){
         payBox.style.display = 'block';
         confirmBtn.style.display = 'inline-flex';
       } else {
@@ -746,6 +777,48 @@
         if(detailOpen && detailOpen.style.display !== 'none') await view(id);
       }catch(e){
         alert(e.message || 'Error al confirmar entrega');
+      }
+    }
+
+    function openCancelOrder(id){
+      document.getElementById('cancelOrderId').value = String(id);
+      document.getElementById('cancelOrderReason').value = '';
+      document.getElementById('cancelOrderTitle').textContent = 'Cancelar pedido #' + id;
+      showInlineMessage('cancelOrderMsg','');
+      document.getElementById('cancelOrderOverlay').style.display = 'flex';
+      setTimeout(()=> document.getElementById('cancelOrderReason').focus(), 40);
+    }
+
+    function hideCancelOrder(){
+      document.getElementById('cancelOrderOverlay').style.display = 'none';
+      showInlineMessage('cancelOrderMsg','');
+    }
+
+    async function submitCancelOrder(){
+      const id = Number(document.getElementById('cancelOrderId').value);
+      const reason = (document.getElementById('cancelOrderReason').value || '').trim();
+      showInlineMessage('cancelOrderMsg','');
+      if(!reason){ showInlineMessage('cancelOrderMsg','Escribe el motivo de cancelación', 'error'); return }
+      const btn = document.getElementById('cancelOrderSubmit');
+      if(btn){ btn.disabled = true; btn.textContent = 'Cancelando...'; }
+      try{
+        const res = await apiFetch(`/api/orders/${id}/cancel`, {
+          method: 'POST',
+          headers:{'content-type':'application/json'},
+          body: JSON.stringify({ reason })
+        });
+        if(res.status === 401 || res.status === 403){ setToken(null); setUser(null); showUnauthorized(); hideCancelOrder(); alert('No autorizado'); return }
+        const data = await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(data.error || 'No se pudo cancelar');
+        hideCancelOrder();
+        await load();
+        const detailOpen = document.getElementById('orderDetailOverlay');
+        if(detailOpen && detailOpen.style.display !== 'none') await view(id);
+        showInlineMessage('orderDetailMsg', detailOpen && detailOpen.style.display !== 'none' ? 'Pedido cancelado' : '', 'success');
+      }catch(e){
+        showInlineMessage('cancelOrderMsg', e.message || 'Error', 'error');
+      }finally{
+        if(btn){ btn.disabled = false; btn.textContent = 'Confirmar cancelación'; }
       }
     }
 
@@ -1298,6 +1371,14 @@
       const id = Number(document.getElementById('orderDetailId').value);
       if(id) confirmDelivery(id);
     });
+    document.getElementById('orderDetailCancel').addEventListener('click', (e)=>{
+      e.preventDefault();
+      const id = Number(document.getElementById('orderDetailId').value);
+      if(id) openCancelOrder(id);
+    });
+    document.getElementById('cancelOrderClose').addEventListener('click', (e)=>{ e.preventDefault(); hideCancelOrder(); });
+    document.getElementById('cancelOrderSubmit').addEventListener('click', (e)=>{ e.preventDefault(); submitCancelOrder(); });
+    document.getElementById('cancelOrderOverlay').addEventListener('click', (e)=>{ if(e.target && e.target.id === 'cancelOrderOverlay') hideCancelOrder(); });
     document.getElementById('orderDetailConfirm').addEventListener('click', (e)=>{
       e.preventDefault();
       const id = Number(document.getElementById('orderDetailId').value);
