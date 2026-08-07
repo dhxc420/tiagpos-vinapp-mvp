@@ -312,6 +312,41 @@
     </div>
   </div>
 
+  <!-- Order detail modal -->
+  <div id="orderDetailOverlay" class="modal-overlay" style="display:none">
+    <div class="modal order-detail-modal" role="dialog" aria-modal="true" aria-labelledby="orderDetailTitle">
+      <div class="order-detail-head">
+        <div>
+          <h3 id="orderDetailTitle">Pedido</h3>
+          <p id="orderDetailWhen" class="small" style="margin:4px 0 0;color:var(--muted)"></p>
+        </div>
+        <span id="orderDetailStatus" class="order-detail-badge"></span>
+      </div>
+      <input type="hidden" id="orderDetailId" />
+      <div class="order-detail-body">
+        <div class="order-detail-row"><span>Cliente</span><strong id="orderDetailCustomer"></strong></div>
+        <div class="order-detail-row" id="orderDetailPhoneRow" style="display:none"><span>Teléfono</span><strong id="orderDetailPhone"></strong></div>
+        <div class="order-detail-items-wrap">
+          <div class="small" style="font-weight:750;margin-bottom:8px;color:var(--muted)">Items</div>
+          <ul id="orderDetailItems" class="order-detail-items"></ul>
+        </div>
+        <div class="order-detail-row order-detail-total"><span>Total</span><strong id="orderDetailTotal"></strong></div>
+        <div id="orderDetailProofLink" class="order-detail-proof" style="display:none"></div>
+        <div id="orderDetailPayBox" class="order-detail-pay" style="display:none">
+          <label class="login-field" for="proof_input">
+            <span>URL comprobante (opcional)</span>
+            <input id="proof_input" placeholder="https://..." />
+          </label>
+        </div>
+        <div id="orderDetailMsg" class="small inline-msg" style="display:none;margin-top:8px"></div>
+      </div>
+      <div class="modal-actions">
+        <button id="orderDetailClose" class="btn btn-ghost" type="button">Cerrar</button>
+        <button id="orderDetailConfirm" class="btn btn-primary" type="button" style="display:none">Confirmar pago</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Edit profile modal -->
   <div id="editOverlay" class="modal-overlay" style="display:none">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="editTitle">
@@ -476,27 +511,94 @@
       }
     }
     async function view(id){
-      const d = document.getElementById('detail'); d.style.display='block'; d.innerHTML='Cargando...';
+      const ov = document.getElementById('orderDetailOverlay');
+      if(!ov) return;
+      showInlineMessage('orderDetailMsg','');
+      document.getElementById('orderDetailTitle').textContent = 'Pedido #' + id;
+      document.getElementById('orderDetailWhen').textContent = 'Cargando...';
+      document.getElementById('orderDetailCustomer').textContent = '—';
+      document.getElementById('orderDetailItems').innerHTML = '';
+      document.getElementById('orderDetailTotal').textContent = '—';
+      document.getElementById('orderDetailStatus').textContent = '';
+      document.getElementById('orderDetailStatus').className = 'order-detail-badge';
+      document.getElementById('orderDetailId').value = String(id);
+      document.getElementById('orderDetailPayBox').style.display = 'none';
+      document.getElementById('orderDetailConfirm').style.display = 'none';
+      document.getElementById('orderDetailProofLink').style.display = 'none';
+      document.getElementById('orderDetailPhoneRow').style.display = 'none';
+      const proofInput = document.getElementById('proof_input');
+      if(proofInput) proofInput.value = '';
+      ov.style.display = 'flex';
+
       const res = await apiFetch(`/api/orders/${id}`);
-      if(res.status === 401 || res.status === 403){ setToken(null); setUser(null); showUnauthorized(); d.innerHTML='No autorizado'; return }
-      if(!res.ok){ d.innerHTML='Pedido no encontrado'; return }
+      if(res.status === 401 || res.status === 403){
+        setToken(null); setUser(null); showUnauthorized();
+        hideOrderDetail();
+        alert('No autorizado');
+        return;
+      }
+      if(!res.ok){
+        showInlineMessage('orderDetailMsg','Pedido no encontrado','error');
+        document.getElementById('orderDetailWhen').textContent = '';
+        return;
+      }
       const o = await res.json();
-      const itemsHtml = o.items.map(i=>`<li>${esc(i.name)} x ${esc(i.qty)} — ${fmtMoney(i.price)}</li>`).join('');
-      d.innerHTML = `
-        <h3>Pedido #${esc(o.id)} <small class="small">${esc(new Date(o.created_at).toLocaleString())}</small></h3>
-        <p><strong>Cliente:</strong> ${esc(o.customer_name)}</p>
-        <ul>${itemsHtml}</ul>
-        <p><strong>Total:</strong> ${fmtMoney(o.total)}</p>
-        <p><strong>Estado:</strong> <span class="${o.status==='paid' ? 'status-paid' : 'status-pending'}">${esc(o.status)}</span></p>
-        ${o.proof_url ? `<p><strong>Comprobante:</strong> <a href="${safeUrl(o.proof_url)}" target="_blank" rel="noopener">Ver comprobante</a></p>` : ''}
-        <div style="margin-top:12px">
-          ${o.status!=='paid' ? `<input id="proof_input" placeholder="URL comprobante (opcional)" style="width:60%" /> <button class="btn" onclick="confirmFromDetail(${Number(o.id)})">Confirmar pago</button>` : ''}
-          <button class="btn btn-ghost" style="margin-left:8px" onclick="closeDetail()">Cerrar</button>
-        </div>
-      `;
+      fillOrderDetailModal(o);
     }
 
-    function closeDetail(){ document.getElementById('detail').style.display='none'; }
+    function fillOrderDetailModal(o){
+      document.getElementById('orderDetailId').value = String(o.id);
+      document.getElementById('orderDetailTitle').textContent = 'Pedido #' + o.id;
+      document.getElementById('orderDetailWhen').textContent = new Date(o.created_at).toLocaleString();
+      document.getElementById('orderDetailCustomer').textContent = o.customer_name || 'Anon';
+      document.getElementById('orderDetailTotal').textContent = fmtMoney(o.total);
+
+      const phoneRow = document.getElementById('orderDetailPhoneRow');
+      const phoneEl = document.getElementById('orderDetailPhone');
+      if(o.customer_phone){
+        phoneEl.textContent = o.customer_phone;
+        phoneRow.style.display = 'flex';
+      } else {
+        phoneRow.style.display = 'none';
+      }
+
+      const statusEl = document.getElementById('orderDetailStatus');
+      const paid = o.status === 'paid';
+      statusEl.textContent = o.status || '';
+      statusEl.className = 'order-detail-badge ' + (paid ? 'is-paid' : 'is-pending');
+
+      document.getElementById('orderDetailItems').innerHTML = (o.items || []).map(i=>
+        `<li><span>${esc(i.name)} <em>×${esc(i.qty)}</em></span><strong>${fmtMoney(i.price * (i.qty || 1))}</strong></li>`
+      ).join('') || '<li class="small">Sin items</li>';
+
+      const proofBox = document.getElementById('orderDetailProofLink');
+      if(o.proof_url){
+        proofBox.style.display = 'block';
+        proofBox.innerHTML = `<a href="${safeUrl(o.proof_url)}" target="_blank" rel="noopener">Ver comprobante</a>`;
+      } else {
+        proofBox.style.display = 'none';
+        proofBox.innerHTML = '';
+      }
+
+      const payBox = document.getElementById('orderDetailPayBox');
+      const confirmBtn = document.getElementById('orderDetailConfirm');
+      if(!paid){
+        payBox.style.display = 'block';
+        confirmBtn.style.display = 'inline-flex';
+      } else {
+        payBox.style.display = 'none';
+        confirmBtn.style.display = 'none';
+      }
+      showInlineMessage('orderDetailMsg','');
+    }
+
+    function hideOrderDetail(){
+      const ov = document.getElementById('orderDetailOverlay');
+      if(ov) ov.style.display = 'none';
+      showInlineMessage('orderDetailMsg','');
+    }
+
+    function closeDetail(){ hideOrderDetail(); }
 
     async function markPaid(id){
       if(!confirm('Marcar pedido #'+id+' como pagado?')) return;
@@ -542,12 +644,26 @@
 
 
     async function confirmFromDetail(id){
-      const proof = document.getElementById('proof_input').value.trim();
-      const res = await apiFetch(`/api/orders/${id}/confirm-payment`, { method: 'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ proof_url: proof || null }) });
-      if(res.status === 401 || res.status === 403){ setToken(null); setUser(null); showUnauthorized(); alert('No autorizado'); return }
-      if(!res.ok){ alert('Error al confirmar'); return }
-      await load();
-      view(id);
+      const proofEl = document.getElementById('proof_input');
+      const proof = proofEl ? proofEl.value.trim() : '';
+      const btn = document.getElementById('orderDetailConfirm');
+      if(btn){ btn.disabled = true; btn.textContent = 'Confirmando...'; }
+      showInlineMessage('orderDetailMsg','');
+      try{
+        const res = await apiFetch(`/api/orders/${id}/confirm-payment`, { method: 'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ proof_url: proof || null }) });
+        if(res.status === 401 || res.status === 403){ setToken(null); setUser(null); showUnauthorized(); hideOrderDetail(); alert('No autorizado'); return }
+        if(!res.ok){
+          const t = await res.json().catch(()=>({}));
+          throw new Error(t.error || 'Error al confirmar');
+        }
+        await load();
+        showInlineMessage('orderDetailMsg','Pago confirmado','success');
+        await view(id);
+      }catch(err){
+        showInlineMessage('orderDetailMsg', err.message || 'Error al confirmar', 'error');
+      }finally{
+        if(btn){ btn.disabled = false; btn.textContent = 'Confirmar pago'; }
+      }
     }
 
     document.getElementById('reload').addEventListener('click', load);
@@ -1064,6 +1180,18 @@
     document.getElementById('productEditCancel').addEventListener('click', (e)=>{ e.preventDefault(); hideProductEditModal(); });
     document.getElementById('productEditSave').addEventListener('click', (e)=>{ e.preventDefault(); saveProductEdit(); });
     document.getElementById('productEditOverlay').addEventListener('click', (e)=>{ if(e.target && e.target.id === 'productEditOverlay') hideProductEditModal(); });
+    document.getElementById('orderDetailClose').addEventListener('click', (e)=>{ e.preventDefault(); hideOrderDetail(); });
+    document.getElementById('orderDetailConfirm').addEventListener('click', (e)=>{
+      e.preventDefault();
+      const id = Number(document.getElementById('orderDetailId').value);
+      if(id) confirmFromDetail(id);
+    });
+    document.getElementById('orderDetailOverlay').addEventListener('click', (e)=>{ if(e.target && e.target.id === 'orderDetailOverlay') hideOrderDetail(); });
+    window.addEventListener('keydown', (e)=>{
+      if(e.key !== 'Escape') return;
+      const ov = document.getElementById('orderDetailOverlay');
+      if(ov && ov.style.display !== 'none') hideOrderDetail();
+    });
     document.getElementById('productEditName').addEventListener('keydown', (e)=>{ if(e.key === 'Enter'){ e.preventDefault(); saveProductEdit(); }});
 
     // Edit profile modal handlers
@@ -1430,6 +1558,7 @@
     }
     function showSection(section){
       closeMobileSidebar();
+      hideOrderDetail();
       // clear active
       document.querySelectorAll('.side-link').forEach(a=> a.classList.remove('active'));
       const sel = document.querySelector('.side-link[data-section="'+section+'"]'); if(sel) sel.classList.add('active');
