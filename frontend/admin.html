@@ -58,6 +58,7 @@
           <ul style="list-style:none;padding:0;margin:0">
             <li><a href="#" data-section="dashboard" class="side-link">🏠 Dashboard</a></li>
             <li id="navNegocios" style="display:none"><a href="#" data-section="negocios" class="side-link">🏪 Negocios</a></li>
+            <li id="navStatus" style="display:none"><a href="#" data-section="status" class="side-link">🩺 Estado de servicios</a></li>
             <li><a href="#" data-section="orders" class="side-link">🧾 Pedidos</a></li>
             <li><a href="#" data-section="inventory" class="side-link">📦 Inventario</a></li>
             <li><a href="#" data-section="menu" class="side-link">🍽️ Menú</a></li>
@@ -684,6 +685,8 @@
           }
           const navNeg = document.getElementById('navNegocios');
           if(navNeg) navNeg.style.display = user.role === 'admin' ? 'list-item' : 'none';
+          const navStatus = document.getElementById('navStatus');
+          if(navStatus) navStatus.style.display = user.role === 'admin' ? 'list-item' : 'none';
           updateOpenStatusUI(user);
           const post = document.getElementById('postAuthControls'); if(post) post.style.display = 'block';
           const list = document.getElementById('list'); if(list) list.style.display = 'block';
@@ -951,6 +954,86 @@
             }catch(e){ box.innerHTML = 'Error: ' + e.message; }
           })();
         }
+      } else if(section === 'status'){
+        if(detail){
+          detail.style.display='block';
+          detail.innerHTML = `
+            <div class="dash-head">
+              <div>
+                <h3 style="margin:0">Estado de servicios</h3>
+                <p class="small" style="margin:6px 0 0">Salud de API, base de datos y configuración</p>
+              </div>
+              <button class="btn btn-ghost" type="button" id="statusRefresh">Actualizar</button>
+            </div>
+            <div id="statusOverall" class="status-overall" style="margin-top:14px">Cargando...</div>
+            <div id="statusGrid" class="status-grid" style="margin-top:14px"></div>
+            <div id="statusMeta" class="status-meta small" style="margin-top:14px;color:var(--muted)"></div>
+          `;
+          async function loadStatus(){
+            const overall = document.getElementById('statusOverall');
+            const grid = document.getElementById('statusGrid');
+            const meta = document.getElementById('statusMeta');
+            overall.textContent = 'Comprobando...';
+            grid.innerHTML = '';
+            try{
+              const t0 = Date.now();
+              const res = await apiFetch('/api/admin/status');
+              const clientMs = Date.now() - t0;
+              if(res.status === 403){ overall.innerHTML = '<span class="status-badge is-bad">Solo admin</span>'; return }
+              if(!res.ok){ overall.innerHTML = '<span class="status-badge is-bad">Error al consultar</span>'; return }
+              const data = await res.json();
+              overall.innerHTML = data.ok
+                ? `<span class="status-badge is-ok">Todo operativo</span> <span class="small">· ${esc(new Date(data.checked_at).toLocaleString())}</span>`
+                : `<span class="status-badge is-bad">Hay fallos</span> <span class="small">· ${esc(new Date(data.checked_at).toLocaleString())}</span>`;
+
+              const cards = (data.checks || []).map(c => `
+                <div class="status-card ${c.ok ? 'is-ok' : 'is-bad'}">
+                  <div class="status-card-top">
+                    <strong>${esc(c.label)}</strong>
+                    <span>${c.ok ? 'OK' : 'FALLA'}</span>
+                  </div>
+                  <div class="small">${esc(c.detail || '')}</div>
+                </div>`).join('');
+
+              const envRows = Object.keys(data.env || {}).map(k =>
+                `<div class="status-env-row"><span>${esc(k)}</span><strong class="${data.env[k]?'status-ok':'status-bad'}">${data.env[k]?'sí':'no'}</strong></div>`
+              ).join('');
+
+              const countRows = Object.keys(data.counts || {}).map(k =>
+                `<div class="status-env-row"><span>${esc(k)}</span><strong>${esc(data.counts[k])}</strong></div>`
+              ).join('');
+
+              grid.innerHTML = `
+                <div class="status-cards">${cards}</div>
+                <div class="status-panels">
+                  <div class="status-panel">
+                    <h4>Runtime</h4>
+                    <div class="status-env-row"><span>Node</span><strong>${esc(data.runtime && data.runtime.node)}</strong></div>
+                    <div class="status-env-row"><span>Uptime</span><strong>${esc(data.runtime && data.runtime.uptime_s)} s</strong></div>
+                    <div class="status-env-row"><span>Memoria RSS</span><strong>${esc(data.runtime && data.runtime.memory_mb)} MB</strong></div>
+                    <div class="status-env-row"><span>Entorno</span><strong>${esc(data.runtime && data.runtime.env)}</strong></div>
+                    <div class="status-env-row"><span>Serverless</span><strong>${data.runtime && data.runtime.serverless ? 'sí' : 'no'}</strong></div>
+                  </div>
+                  <div class="status-panel">
+                    <h4>Variables (presencia)</h4>
+                    ${envRows || '<div class="small">Sin datos</div>'}
+                  </div>
+                  <div class="status-panel">
+                    <h4>Conteos DB</h4>
+                    ${countRows || '<div class="small">Sin datos</div>'}
+                  </div>
+                </div>`;
+              meta.textContent = `Consulta servidor ${data.duration_ms} ms · red ${clientMs} ms · Mongo: ${(data.mongo && data.mongo.readyLabel) || 'n/a'}`;
+            }catch(e){
+              overall.innerHTML = '<span class="status-badge is-bad">Error</span>';
+              grid.innerHTML = `<div class="small">${esc(e.message)}</div>`;
+            }
+          }
+          loadStatus();
+          const btn = document.getElementById('statusRefresh');
+          if(btn) btn.addEventListener('click', loadStatus);
+        }
+        if(list) list.style.display='none';
       } else if(section === 'inventory'){
         if(detail) {
           detail.style.display='block';

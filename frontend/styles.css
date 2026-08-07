@@ -296,6 +296,37 @@ html[data-theme="dark"] .market-cat.is-active{color:#04140c}
 .menu-form-grid label{display:flex;flex-direction:column;gap:4px;font-size:.82rem;font-weight:700;color:var(--muted)}
 .menu-form-grid .span-2{grid-column:span 2}
 .menu-form-grid .span-3{grid-column:1 / -1}
+.status-badge{
+  display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;
+  font-weight:800;font-size:.85rem;
+}
+.status-badge.is-ok{background:var(--accent-soft);color:var(--success)}
+.status-badge.is-bad{background:rgba(180,35,24,0.12);color:var(--danger)}
+.status-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.status-card{
+  padding:14px;border-radius:14px;border:1px solid var(--line);background:var(--bg-elev);
+}
+.status-card.is-ok{border-color:color-mix(in srgb, var(--success) 35%, var(--line))}
+.status-card.is-bad{border-color:color-mix(in srgb, var(--danger) 40%, var(--line))}
+.status-card-top{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px}
+.status-card-top span{font-size:.75rem;font-weight:800;letter-spacing:.04em}
+.status-card.is-ok .status-card-top span{color:var(--success)}
+.status-card.is-bad .status-card-top span{color:var(--danger)}
+.status-panels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.status-panel{
+  padding:14px;border-radius:14px;border:1px solid var(--line);background:var(--bg);
+}
+.status-panel h4{margin:0 0 10px;font-family:var(--font-display)}
+.status-env-row{
+  display:flex;justify-content:space-between;gap:10px;padding:6px 0;
+  border-bottom:1px dashed var(--line);font-size:.9rem;
+}
+.status-env-row:last-child{border-bottom:0}
+.status-ok{color:var(--success)}
+.status-bad{color:var(--danger)}
+@media (max-width:900px){
+  .status-cards,.status-panels{grid-template-columns:1fr}
+}
 @media (max-width:900px){
   .market-layout{grid-template-columns:1fr}
   .market-cart{position:static}

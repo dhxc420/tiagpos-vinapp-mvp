@@ -630,6 +630,118 @@ app.get('/api/admin/negocios', requireAdmin, (req, res) => {
   res.json(negocios);
 });
 
+app.get('/api/admin/status', requireAdmin, async (req, res) => {
+  const started = Date.now();
+  db = readDB();
+
+  const mongoStates = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
+  let mongo = {
+    configured: !!(process.env.MONGO_URI || process.env.MONGOURL || process.env.MONGOURL_SHORT),
+    using: usingMongo,
+    readyState: null,
+    readyLabel: 'n/a',
+    ping_ms: null,
+    ok: false,
+    error: null
+  };
+
+  if (mongoModels && mongoModels.mongoose) {
+    const state = mongoModels.mongoose.connection.readyState;
+    mongo.readyState = state;
+    mongo.readyLabel = mongoStates[state] || String(state);
+    if (state === 1) {
+      try {
+        const t0 = Date.now();
+        await mongoModels.mongoose.connection.db.admin().command({ ping: 1 });
+        mongo.ping_ms = Date.now() - t0;
+        mongo.ok = true;
+      } catch (e) {
+        mongo.error = e.message;
+        mongo.ok = false;
+      }
+    } else {
+      mongo.ok = false;
+      mongo.error = 'Mongo not connected';
+    }
+  } else if (!mongo.configured) {
+    mongo.ok = true; // file DB mode is intentional
+    mongo.readyLabel = 'file-db';
+  }
+
+  const counts = {
+    users: (db.users || []).length,
+    negocios: (db.users || []).filter(u => u.role === 'negocio').length,
+    menus: (db.menus || []).length,
+    orders: (db.orders || []).length,
+    inventory: (db.inventories || []).length,
+    cash: (db.cash || []).length
+  };
+
+  const checks = [];
+  const pushCheck = (id, label, ok, detail) => checks.push({ id, label, ok: !!ok, detail: detail || '' });
+
+  pushCheck('api', 'API Express', true, `Respuesta en ${Date.now() - started} ms`);
+  pushCheck('auth', 'JWT / sesiones', !!process.env.JWT_SECRET, process.env.JWT_SECRET ? 'JWT_SECRET configurado' : 'JWT_SECRET ausente');
+  pushCheck('mongo', 'Base de datos MongoDB', mongo.ok || (!mongo.configured && !usingMongo),
+    mongo.configured
+      ? (mongo.ok ? `Conectado · ping ${mongo.ping_ms} ms` : (mongo.error || mongo.readyLabel))
+      : 'Sin MONGO_URI · usando archivo local/tmp');
+  pushCheck('memory_db', 'Datos en memoria', !!(db && db.users), `${counts.users} users · ${counts.orders} orders · ${counts.menus} menus`);
+
+  // Probe key public routes quickly (same process)
+  const probes = [
+    { id: 'health', label: 'GET /api/health', path: '/api/health' },
+    { id: 'config', label: 'GET /api/config', path: '/api/config' }
+  ];
+  for (const p of probes) {
+    const t0 = Date.now();
+    try {
+      if (p.path === '/api/health') {
+        pushCheck(p.id, p.label, true, `ok · ${Date.now() - t0} ms · mongo=${usingMongo}`);
+      } else if (p.path === '/api/config') {
+        pushCheck(p.id, p.label, true, `ok · ${Date.now() - t0} ms`);
+      }
+    } catch (e) {
+      pushCheck(p.id, p.label, false, e.message);
+    }
+  }
+
+  // Sample storefronts if present
+  const sampleSlugs = (db.users || [])
+    .filter(u => u.business && u.business.slug)
+    .slice(0, 3)
+    .map(u => u.business.slug);
+  for (const slug of sampleSlugs) {
+    const owner = db.users.find(u => u.business && u.business.slug === slug);
+    const menuCount = (db.menus || []).filter(m => m.ownerId === owner.id).length;
+    pushCheck('store_' + slug, `Negocio /b/${slug}`, !!owner, `${menuCount} productos · ${owner.business.store_kind || 'restaurant'}`);
+  }
+
+  const overallOk = checks.every(c => c.ok);
+  res.json({
+    ok: overallOk,
+    checked_at: new Date().toISOString(),
+    duration_ms: Date.now() - started,
+    runtime: {
+      node: process.version,
+      platform: process.platform,
+      uptime_s: Math.round(process.uptime()),
+      memory_mb: Math.round(process.memoryUsage().rss / (1024 * 1024)),
+      serverless: !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME),
+      env: process.env.VERCEL_ENV || process.env.NODE_ENV || 'unknown'
+    },
+    mongo,
+    counts,
+    checks,
+    env: {
+      JWT_SECRET: !!process.env.JWT_SECRET,
+      MONGO_URI: !!(process.env.MONGO_URI || process.env.MONGOURL || process.env.MONGOURL_SHORT),
+      CHECKOUT_BASE: !!process.env.CHECKOUT_BASE,
+      WHATSAPP_NUMBER: !!process.env.WHATSAPP_NUMBER
+    }
+  });
+});
+
 app.post('/api/register', async (req, res) => {
   const { username, password, role, business } = req.body || {};
   if (!username || !password || !role) return res.status(400).json({ error: 'username, password and role required' });
