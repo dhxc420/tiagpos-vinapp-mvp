@@ -486,21 +486,32 @@
         || normalizeWaPhone((await (await fetch('/api/config')).json()).whatsapp_number);
     }
 
-    function openOrderWhatsApp(order, extraLines){
+    function openOrderWhatsApp(order, extraLines, opts){
+      opts = opts || {};
       return resolveOrderWaPhone(order).then(toPhone => {
         if(!toPhone) throw new Error('No hay número de WhatsApp para este pedido');
         const user = getUser();
         const store = (user && user.business && user.business.name) || 'la tienda';
-        const lines = [
-          'Hola' + (order.customer_name ? (' ' + order.customer_name) : '') + ',',
-          '',
-          'Te escribimos de ' + store + ' sobre tu pedido #' + order.id + ':',
-          ...(order.items || []).map(i=> '• ' + i.name + ' x' + i.qty + ' — ' + fmtMoney(i.price * i.qty)),
-          '',
-          'Total: ' + fmtMoney(order.total),
-          'Estado: ' + orderStatusLabel(order.status),
-          ...(extraLines || [])
-        ];
+        const name = order.customer_name ? String(order.customer_name).trim() : '';
+        let lines;
+        if(opts.short){
+          lines = [
+            'Hola' + (name ? (' ' + name) : '') + ',',
+            'Te escribimos de ' + store + ' sobre tu pedido #' + order.id + ':',
+            ...(extraLines && extraLines.length ? extraLines : ['• Tu pedido ya fue entregado a domicilio. ¡Gracias!'])
+          ];
+        } else {
+          lines = [
+            'Hola' + (name ? (' ' + name) : '') + ',',
+            '',
+            'Te escribimos de ' + store + ' sobre tu pedido #' + order.id + ':',
+            ...(order.items || []).map(i=> '• ' + i.name + ' x' + i.qty + ' — ' + fmtMoney(i.price * i.qty)),
+            '',
+            'Total: ' + fmtMoney(order.total),
+            'Estado: ' + orderStatusLabel(order.status),
+            ...(extraLines || [])
+          ];
+        }
         const url = `https://wa.me/${toPhone}?text=${encodeURIComponent(lines.join('\n'))}`;
         const w = window.open(url, '_blank');
         if(!w) window.location.href = url;
@@ -726,10 +737,8 @@
         await load();
         try{
           await openOrderWhatsApp(data, [
-            '',
-            '✅ Entrega confirmada.',
-            'Tu pedido ya fue entregado a domicilio. ¡Gracias!'
-          ]);
+            '• Tu pedido ya fue entregado a domicilio. ¡Gracias!'
+          ], { short: true });
         }catch(waErr){
           alert('Entrega confirmada, pero no se pudo abrir WhatsApp: ' + waErr.message);
         }
