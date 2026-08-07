@@ -489,8 +489,9 @@ body.sidebar-open{overflow:hidden}
 }
 
 /* Market / mini-super public catalog */
+.market-body{padding-bottom:100px}
 .market-layout{
-  display:grid;grid-template-columns:minmax(0,1.6fr) minmax(260px,0.9fr);gap:14px;align-items:start;
+  display:grid;grid-template-columns:1fr;gap:14px;align-items:start;
 }
 .market-toolbar{
   display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;
@@ -503,7 +504,7 @@ body.sidebar-open{overflow:hidden}
 }
 .market-cat.is-active{background:var(--accent);color:#fff;border-color:transparent}
 html[data-theme="dark"] .market-cat.is-active{color:#04140c}
-.market-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.market-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .market-card{
   padding:14px;border-radius:14px;border:1px solid var(--line);
   background:color-mix(in srgb, var(--bg) 40%, var(--bg-elev));
@@ -520,12 +521,48 @@ html[data-theme="dark"] .market-cat.is-active{color:#04140c}
 .market-qty-row{display:flex;gap:8px;align-items:flex-end;margin-top:auto}
 .market-qty-row label{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
 .market-qty-row .qty-input{width:100%;max-width:100px}
-.market-cart{position:sticky;top:12px}
 .market-cart-list{list-style:none;padding:0;margin:0;display:grid;gap:8px}
 .market-cart-list li{
   display:flex;justify-content:space-between;align-items:center;gap:8px;
   padding:8px 0;border-bottom:1px dashed var(--line);font-size:.92rem;
 }
+.market-cart-fab{
+  position:fixed;right:18px;bottom:18px;z-index:90;
+  width:76px;min-height:76px;padding:10px 8px 8px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  border:1px solid var(--line);border-radius:20px;
+  background:var(--bg-elev);color:var(--ink);
+  box-shadow:var(--shadow);cursor:pointer;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.market-cart-fab:hover{
+  transform:translateY(-2px);
+  border-color:color-mix(in srgb, var(--accent) 40%, var(--line));
+}
+.market-cart-fab.has-items{
+  border-color:color-mix(in srgb, var(--accent) 45%, var(--line));
+  background:color-mix(in srgb, var(--accent-soft) 55%, var(--bg-elev));
+}
+.market-cart-fab-icon{
+  display:inline-flex;align-items:center;justify-content:center;color:var(--accent);
+}
+.market-cart-fab-label{
+  font-size:.72rem;font-weight:800;letter-spacing:.02em;text-transform:lowercase;color:var(--ink);
+}
+.market-cart-fab-badge{
+  position:absolute;top:6px;right:8px;min-width:20px;height:20px;padding:0 6px;
+  border-radius:999px;background:var(--accent-hot);color:#fff;
+  font-size:.72rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center;
+}
+.market-cart-modal{width:480px}
+.market-cart-close{
+  width:36px;height:36px;border-radius:10px;border:1px solid var(--line);
+  background:var(--bg);color:var(--ink);font-size:1.4rem;line-height:1;cursor:pointer;
+}
+.market-cart-body{min-height:48px}
+.market-cart-total{font-weight:800;font-size:1.1rem;color:var(--ink)}
+.market-cart-footer .modal-actions{justify-content:space-between}
+.market-cart-footer .btn-primary{flex:1}
 .menu-form-grid{
   display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;align-items:end;
 }
@@ -564,14 +601,17 @@ html[data-theme="dark"] .market-cat.is-active{color:#04140c}
   .status-cards,.status-panels{grid-template-columns:1fr}
 }
 @media (max-width:900px){
-  .market-layout{grid-template-columns:1fr}
-  .market-cart{position:static}
-  .market-grid{grid-template-columns:1fr}
+  .market-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .menu-form-grid{grid-template-columns:1fr 1fr}
   .menu-form-grid .span-2,.menu-form-grid .span-3{grid-column:1 / -1}
+  .market-cart-modal{width:100%}
 }
 @media (max-width:520px){
+  .market-grid{grid-template-columns:1fr}
   .menu-form-grid{grid-template-columns:1fr}
+  .market-cart-fab{right:14px;bottom:14px;width:70px;min-height:70px}
+  .market-cart-footer .modal-actions{flex-direction:column}
+  .market-cart-footer .btn-primary,.market-cart-footer .btn-ghost{width:100%}
 }
 
 .open-toggle{

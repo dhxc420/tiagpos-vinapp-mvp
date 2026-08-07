@@ -52,24 +52,50 @@
           <div id="catTabs" class="market-cats" role="tablist"></div>
           <div id="menuList" class="market-grid">Cargando...</div>
         </div>
-
-        <div class="card market-cart" id="cartCard">
-          <h3>Carrito</h3>
-          <div id="cartItems">No hay items en el carrito</div>
-          <div id="checkoutFields" style="display:none;margin-top:12px">
-            <label class="small" for="custName">Tu nombre</label>
-            <input id="custName" placeholder="Nombre" style="width:100%;margin:4px 0 8px" />
-            <label class="small" for="custPhone">Tu WhatsApp (opcional)</label>
-            <input id="custPhone" placeholder="Ej. 3001234567" style="width:100%;margin:4px 0 8px" />
-          </div>
-          <div style="margin-top:12px">
-            <div id="cartTotal" style="font-weight:800"></div>
-            <div id="orderMsg" class="small inline-msg" style="display:none;margin-top:8px"></div>
-            <button id="waBtn" class="btn btn-primary" style="margin-top:8px;display:none;width:100%" type="button">Enviar pedido por WhatsApp</button>
-          </div>
-        </div>
       </div>
     </main>
+  </div>
+
+  <button type="button" id="cartFab" class="market-cart-fab" aria-label="Abrir carrito">
+    <span class="market-cart-fab-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/>
+        <path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.4a2 2 0 0 0 2-1.5L21 8H7"/>
+      </svg>
+    </span>
+    <span class="market-cart-fab-label">Carrito</span>
+    <span id="cartBadge" class="market-cart-fab-badge" hidden>0</span>
+  </button>
+
+  <div id="cartModalOverlay" class="modal-overlay" style="display:none">
+    <div class="modal market-cart-modal" role="dialog" aria-modal="true" aria-labelledby="cartModalTitle">
+      <div class="order-detail-head">
+        <div>
+          <h3 id="cartModalTitle">Confirmar pedido</h3>
+          <p class="small" style="margin:4px 0 0;color:var(--muted)">Revisa tu carrito y envía el pedido por WhatsApp</p>
+        </div>
+        <button type="button" id="cartModalCloseX" class="market-cart-close" aria-label="Cerrar">×</button>
+      </div>
+      <div id="cartItems" class="market-cart-body">No hay items en el carrito</div>
+      <div id="checkoutFields" style="display:none;margin-top:12px">
+        <label class="login-field" for="custName">
+          <span>Tu nombre</span>
+          <input id="custName" placeholder="Nombre" autocomplete="name" />
+        </label>
+        <label class="login-field" for="custPhone" style="margin-top:10px">
+          <span>Tu WhatsApp (opcional)</span>
+          <input id="custPhone" placeholder="Ej. 3001234567" inputmode="tel" autocomplete="tel" />
+        </label>
+      </div>
+      <div class="market-cart-footer">
+        <div id="cartTotal" class="market-cart-total"></div>
+        <div id="orderMsg" class="small inline-msg" style="display:none;margin-top:8px"></div>
+        <div class="modal-actions" style="margin-top:12px">
+          <button id="cartModalClose" class="btn btn-ghost" type="button">Seguir comprando</button>
+          <button id="waBtn" class="btn btn-primary" style="display:none" type="button">Enviar pedido por WhatsApp</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -257,25 +283,57 @@
       }));
     }
 
+    function cartCount(){
+      return CART.reduce((s,c)=> s + (c.qty || 0), 0);
+    }
+
+    function updateCartBadge(){
+      const badge = document.getElementById('cartBadge');
+      const fab = document.getElementById('cartFab');
+      const n = cartCount();
+      if(!badge || !fab) return;
+      if(n > 0){
+        badge.hidden = false;
+        badge.textContent = String(n);
+        fab.classList.add('has-items');
+      } else {
+        badge.hidden = true;
+        badge.textContent = '0';
+        fab.classList.remove('has-items');
+      }
+    }
+
+    function openCartModal(){
+      const ov = document.getElementById('cartModalOverlay');
+      if(ov) ov.style.display = 'flex';
+      renderCart();
+    }
+
+    function closeCartModal(){
+      const ov = document.getElementById('cartModalOverlay');
+      if(ov) ov.style.display = 'none';
+    }
+
     function renderCart(){
       const el = document.getElementById('cartItems');
       const fields = document.getElementById('checkoutFields');
       const wa = document.getElementById('waBtn');
+      updateCartBadge();
       if(!IS_OPEN){
-        el.innerHTML = 'El negocio no está disponible para pedidos.';
+        el.innerHTML = '<div class="small">El negocio no está disponible para pedidos.</div>';
         document.getElementById('cartTotal').innerText = '';
         wa.style.display='none'; fields.style.display='none';
         return;
       }
       if(!CART.length){
-        el.innerHTML = 'No hay items en el carrito';
+        el.innerHTML = '<div class="small">No hay items en el carrito</div>';
         document.getElementById('cartTotal').innerText = '';
         wa.style.display='none'; fields.style.display='none';
         return;
       }
       el.innerHTML = '<ul class="market-cart-list">' + CART.map(c =>
         `<li><span>${esc(c.name)} × ${esc(c.qty)}</span><span>${fmtMoney(c.price * c.qty)}
-          <button data-id="${Number(c.id)}" class="btn btn-ghost" type="button" style="margin-left:6px">−</button></span></li>`
+          <button data-id="${Number(c.id)}" class="btn btn-ghost" type="button" style="margin-left:6px" aria-label="Quitar">−</button></span></li>`
       ).join('') + '</ul>';
       el.querySelectorAll('button[data-id]').forEach(b => b.addEventListener('click', ()=>{
         const id = Number(b.getAttribute('data-id'));
@@ -288,10 +346,9 @@
       const total = CART.reduce((s,i)=> s + i.qty * i.price, 0);
       document.getElementById('cartTotal').innerText = 'Total: ' + fmtMoney(total);
       fields.style.display='block';
-      wa.style.display='inline-block';
+      wa.style.display='inline-flex';
       wa.disabled = SENDING;
       wa.textContent = SENDING ? 'Enviando...' : 'Enviar pedido por WhatsApp';
-      wa.onclick = () => sendOrderToStoreWhatsApp();
     }
 
     async function resolveStorePhone(){
@@ -372,6 +429,16 @@
     }
 
     document.getElementById('marketSearch').addEventListener('input', renderMenu);
+    document.getElementById('cartFab').addEventListener('click', openCartModal);
+    document.getElementById('cartModalClose').addEventListener('click', closeCartModal);
+    document.getElementById('cartModalCloseX').addEventListener('click', closeCartModal);
+    document.getElementById('cartModalOverlay').addEventListener('click', (e)=>{
+      if(e.target && e.target.id === 'cartModalOverlay') closeCartModal();
+    });
+    document.getElementById('waBtn').addEventListener('click', ()=> sendOrderToStoreWhatsApp());
+    window.addEventListener('keydown', (e)=>{
+      if(e.key === 'Escape') closeCartModal();
+    });
     if(!slug) document.getElementById('menuList').innerText = 'Negocio no especificado';
     else loadBusiness();
   </script>
