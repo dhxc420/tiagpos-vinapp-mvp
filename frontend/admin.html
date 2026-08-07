@@ -1359,8 +1359,9 @@
           const t = await r.json().catch(()=>({}));
           throw new Error(t.error || 'Error al guardar');
         }
+        const onSaved = _onProductSaved;
         hideProductEditModal();
-        if(_onProductSaved) await _onProductSaved();
+        if(onSaved) await onSaved();
       }catch(err){
         showInlineMessage('productEditMsg', err.message || 'Error', 'error');
       }finally{
