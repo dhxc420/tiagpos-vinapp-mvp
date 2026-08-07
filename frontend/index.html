@@ -30,7 +30,7 @@
         <a href="#flujo">Cómo funciona</a>
         <a href="#modulos">Módulos</a>
         <a href="#precios">Precios</a>
-        <a href="/admin.html">Entrar</a>
+        <a href="/admin.html">Iniciar sesión</a>
         <a class="lp-nav-cta" href="/b/santiburgers">Ver demo</a>
       </nav>
       <div class="lp-nav-actions">
@@ -52,34 +52,140 @@
         <h1 class="lp-hero-brand">Whats<em>Menú</em></h1>
         <p class="lp-hero-lead">Tu menú digital listo para vender por WhatsApp: carta online, confirmación de pagos y panel de pedidos — sin apps complicadas.</p>
         <div class="lp-hero-actions">
-          <a class="lp-btn lp-btn-primary" href="/admin.html">Empezar ahora</a>
+          <a class="lp-btn lp-btn-primary" href="https://wa.me/573242281300?text=Hola%2C%20quiero%20agendar%20una%20demo%20de%20WhatsMen%C3%BA%20para%20mi%20negocio" target="_blank" rel="noopener">Agendar una demo</a>
           <a class="lp-btn lp-btn-ghost" href="/b/santiburgers">Ver menú demo gratis</a>
         </div>
       </div>
 
-      <div class="lp-hero-stage" aria-hidden="true">
-        <div class="lp-arc"></div>
-        <div class="lp-device lp-device-panel">
-          <div class="lp-device-bar">
-            <span></span><span></span><span></span>
-            <em>Panel · santiburgers</em>
+      <div class="lp-hero-slider" id="heroSlider" aria-roledescription="carrusel" aria-label="Funciones de WhatsMenú">
+        <div class="lp-slider-viewport">
+          <div class="lp-slide is-active" data-slide="0">
+            <div class="lp-slide-label">
+              <strong>Pedidos en vivo</strong>
+              <span>Panel con estados paid / pending en tiempo real</span>
+            </div>
+            <div class="lp-hero-stage">
+              <div class="lp-arc"></div>
+              <div class="lp-device lp-device-panel">
+                <div class="lp-device-bar">
+                  <span></span><span></span><span></span>
+                  <em>Panel · santiburgers</em>
+                </div>
+                <div class="lp-panel-body">
+                  <div class="lp-panel-row"><b>#42</b><span>Ana · $28.000</span><i class="ok">paid</i></div>
+                  <div class="lp-panel-row"><b>#41</b><span>Carlos · $45.500</span><i>pending</i></div>
+                  <div class="lp-panel-row"><b>#40</b><span>Laura · $18.000</span><i class="ok">paid</i></div>
+                  <div class="lp-panel-row"><b>#39</b><span>Diego · $62.000</span><i>pending</i></div>
+                </div>
+              </div>
+              <div class="lp-device lp-device-phone">
+                <div class="lp-phone-notch"></div>
+                <div class="lp-phone-screen">
+                  <div class="lp-phone-hero"></div>
+                  <div class="lp-phone-brand">santiburgers</div>
+                  <div class="lp-phone-item"><span>Classic Burger</span><strong>$18.000</strong></div>
+                  <div class="lp-phone-item"><span>Papas cheddar</span><strong>$9.500</strong></div>
+                  <div class="lp-phone-cta">Pedir por WhatsApp</div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="lp-panel-body">
-            <div class="lp-panel-row"><b>#42</b><span>Ana · $28.000</span><i class="ok">paid</i></div>
-            <div class="lp-panel-row"><b>#41</b><span>Carlos · $45.500</span><i>pending</i></div>
-            <div class="lp-panel-row"><b>#40</b><span>Laura · $18.000</span><i class="ok">paid</i></div>
-            <div class="lp-panel-row"><b>#39</b><span>Diego · $62.000</span><i>pending</i></div>
+
+          <div class="lp-slide" data-slide="1">
+            <div class="lp-slide-label">
+              <strong>Menú digital público</strong>
+              <span>Link `/b/tu-negocio` listo para compartir</span>
+            </div>
+            <div class="lp-slide-visual lp-slide-menu">
+              <div class="lp-slide-menu-card">
+                <div class="lp-slide-menu-banner"></div>
+                <div class="lp-slide-menu-name">Tu restaurante</div>
+                <div class="lp-slide-menu-row"><span>Plato del día</span><b>$16.000</b></div>
+                <div class="lp-slide-menu-row"><span>Bebida</span><b>$5.000</b></div>
+                <div class="lp-slide-menu-row"><span>Postre</span><b>$8.500</b></div>
+                <div class="lp-slide-menu-wa">Enviar pedido por WhatsApp</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="lp-slide" data-slide="2">
+            <div class="lp-slide-label">
+              <strong>Pagos Nequi</strong>
+              <span>Checkout + comprobante para confirmar</span>
+            </div>
+            <div class="lp-slide-visual lp-slide-pay">
+              <div class="lp-slide-pay-card">
+                <div class="lp-slide-pay-brand">Nequi</div>
+                <div class="lp-slide-pay-amount">$45.500</div>
+                <div class="lp-slide-pay-meta">Pedido #41 · Carlos</div>
+                <div class="lp-slide-pay-steps">
+                  <span class="is-done">Creado</span>
+                  <span class="is-done">Pago</span>
+                  <span>Confirmado</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="lp-slide" data-slide="3">
+            <div class="lp-slide-label">
+              <strong>Inventario</strong>
+              <span>Controla insumos y stock del día</span>
+            </div>
+            <div class="lp-slide-visual">
+              <div class="lp-slide-list">
+                <div class="lp-slide-list-row"><span>Carne molida</span><strong>12 kg</strong></div>
+                <div class="lp-slide-list-row"><span>Pan brioche</span><strong>48 un</strong></div>
+                <div class="lp-slide-list-row"><span>Queso cheddar</span><strong>3.2 kg</strong></div>
+                <div class="lp-slide-list-row is-low"><span>Papas</span><strong>bajo</strong></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="lp-slide" data-slide="4">
+            <div class="lp-slide-label">
+              <strong>Reportes Excel</strong>
+              <span>Ventas, pedidos y exportación lista</span>
+            </div>
+            <div class="lp-slide-visual lp-slide-report">
+              <div class="lp-slide-report-card">
+                <div class="lp-slide-report-metrics">
+                  <div><span>Hoy</span><strong>$1.2M</strong></div>
+                  <div><span>Pedidos</span><strong>24</strong></div>
+                  <div><span>Ticket</span><strong>$50k</strong></div>
+                </div>
+                <div class="lp-slide-bars" aria-hidden="true">
+                  <i style="--h:42%"></i><i style="--h:68%"></i><i style="--h:55%"></i><i style="--h:90%"></i><i style="--h:72%"></i><i style="--h:48%"></i><i style="--h:80%"></i>
+                </div>
+                <div class="lp-slide-export">Exportar Excel</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="lp-slide" data-slide="5">
+            <div class="lp-slide-label">
+              <strong>Restaurantes y mercados</strong>
+              <span>Misma plataforma, vista según tu negocio</span>
+            </div>
+            <div class="lp-slide-visual lp-slide-kinds">
+              <div class="lp-slide-kind">
+                <em>Restaurante</em>
+                <strong>Menú + WhatsApp</strong>
+                <span>Combos, extras y pedidos al chat</span>
+              </div>
+              <div class="lp-slide-kind">
+                <em>Mini-súper</em>
+                <strong>Catálogo + stock</strong>
+                <span>Categorías, unidades y cantidad</span>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="lp-device lp-device-phone">
-          <div class="lp-phone-notch"></div>
-          <div class="lp-phone-screen">
-            <div class="lp-phone-hero"></div>
-            <div class="lp-phone-brand">santiburgers</div>
-            <div class="lp-phone-item"><span>Classic Burger</span><strong>$18.000</strong></div>
-            <div class="lp-phone-item"><span>Papas cheddar</span><strong>$9.500</strong></div>
-            <div class="lp-phone-cta">Pedir por WhatsApp</div>
-          </div>
+
+        <div class="lp-slider-controls">
+          <button type="button" class="lp-slider-btn" id="heroPrev" aria-label="Función anterior">‹</button>
+          <div class="lp-slider-dots" id="heroDots" role="tablist" aria-label="Seleccionar función"></div>
+          <button type="button" class="lp-slider-btn" id="heroNext" aria-label="Siguiente función">›</button>
         </div>
       </div>
     </div>
@@ -240,6 +346,54 @@
         steps.forEach(function(s, i){ s.style.transitionDelay = (i * 0.12) + 's'; io.observe(s); });
       } else {
         steps.forEach(function(s){ s.classList.add('is-in'); });
+      }
+
+      // Hero feature slider
+      var slider = document.getElementById('heroSlider');
+      if(slider){
+        var slides = [].slice.call(slider.querySelectorAll('.lp-slide'));
+        var dotsWrap = document.getElementById('heroDots');
+        var prevBtn = document.getElementById('heroPrev');
+        var nextBtn = document.getElementById('heroNext');
+        var idx = 0;
+        var timer = null;
+        var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        slides.forEach(function(_, i){
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.setAttribute('role', 'tab');
+          b.setAttribute('aria-label', 'Función ' + (i + 1));
+          b.addEventListener('click', function(){ go(i, true); });
+          dotsWrap.appendChild(b);
+        });
+        var dots = [].slice.call(dotsWrap.children);
+
+        function go(n, user){
+          idx = (n + slides.length) % slides.length;
+          slides.forEach(function(s, i){ s.classList.toggle('is-active', i === idx); });
+          dots.forEach(function(d, i){
+            d.classList.toggle('is-active', i === idx);
+            d.setAttribute('aria-selected', i === idx ? 'true' : 'false');
+          });
+          if(user) restart();
+        }
+
+        function next(){ go(idx + 1, false); }
+        function restart(){
+          if(timer) clearInterval(timer);
+          if(!reduceMotion) timer = setInterval(next, 4500);
+        }
+
+        if(prevBtn) prevBtn.addEventListener('click', function(){ go(idx - 1, true); });
+        if(nextBtn) nextBtn.addEventListener('click', function(){ go(idx + 1, true); });
+        slider.addEventListener('mouseenter', function(){ if(timer) clearInterval(timer); });
+        slider.addEventListener('mouseleave', restart);
+        slider.addEventListener('focusin', function(){ if(timer) clearInterval(timer); });
+        slider.addEventListener('focusout', restart);
+
+        go(0, false);
+        restart();
       }
 
       window.addEventListener('scroll', onScroll, { passive: true });
