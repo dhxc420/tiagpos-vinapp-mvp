@@ -386,7 +386,48 @@ body.is-logged-out{overflow:auto}
 .status-delivery{color:#2563eb;font-weight:700}
 .status-delivered{color:var(--success);font-weight:700}
 .status-cancelled{color:var(--danger);font-weight:700}
-.order-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.order-list{display:grid;gap:12px}
+.order-empty{
+  padding:28px 16px;text-align:center;color:var(--muted);font-weight:700;
+  border:1px dashed var(--line);border-radius:14px;
+}
+.order-card{
+  display:grid;gap:10px;padding:14px;border-radius:14px;border:1px solid var(--line);
+  background:color-mix(in srgb, var(--bg) 45%, var(--bg-elev));
+  min-width:0;
+}
+.order-card-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.order-card-id{font-family:var(--font-display);font-weight:800;font-size:1.05rem;color:var(--ink)}
+.order-card-status{font-size:.85rem}
+.order-card-customer{display:block;font-size:1rem;line-height:1.25;overflow-wrap:anywhere}
+.order-card-meta{margin-top:4px}
+.order-card-items{
+  margin-top:8px;font-size:.9rem;color:var(--muted);font-weight:650;line-height:1.4;
+  overflow-wrap:anywhere;
+}
+.order-card-note{margin-top:6px;color:var(--danger)}
+.order-card-total{
+  font-weight:800;font-size:1.15rem;color:var(--accent);letter-spacing:-0.02em;
+}
+.order-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.order-actions .btn,
+.order-actions .btn-ghost,
+.order-actions .btn-dispatch,
+.order-actions .btn-deliver,
+.order-actions .btn-cancel-order{
+  flex:1 1 calc(50% - 8px);min-width:120px;text-align:center;justify-content:center;
+  white-space:normal;line-height:1.2;padding:10px 12px;
+}
+.menu-admin-list{display:grid;gap:10px}
+.menu-admin-card{
+  padding:14px;border-radius:14px;border:1px solid var(--line);
+  background:color-mix(in srgb, var(--bg) 45%, var(--bg-elev));display:grid;gap:10px;min-width:0;
+}
+.menu-admin-card-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.menu-admin-card-top strong{font-size:1rem;line-height:1.25;overflow-wrap:anywhere}
+.menu-admin-card-meta{
+  display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline;font-weight:700;
+}
 .btn-dispatch{
   background:#1d4ed8;color:#fff;border-color:#1d4ed8;
 }
@@ -781,6 +822,15 @@ html:not([data-theme="dark"]) .open-toggle button.is-open{color:#fff}
   #postAuthControls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
   #postAuthControls label{width:100%}
   #postAuthControls #reload{margin-left:0!important;width:100%}
+  .order-actions .btn,
+  .order-actions .btn-ghost,
+  .order-actions .btn-dispatch,
+  .order-actions .btn-deliver,
+  .order-actions .btn-cancel-order{
+    flex:1 1 100%;min-width:0;
+  }
+  .menu-admin-card-top{flex-direction:column;align-items:flex-start}
+  #menuList.table-scroll{overflow:visible}
 }
 
 /* Client browse — large store icons */

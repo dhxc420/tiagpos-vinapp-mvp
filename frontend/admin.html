@@ -160,14 +160,7 @@
         </div>
 
         <div class="card table-card" id="list" style="display:none;margin-top:12px">
-          <div class="table-scroll">
-          <table>
-            <thead>
-              <tr><th>ID</th><th>Cliente</th><th>Items</th><th>Total</th><th>Estado</th><th>Acciones</th></tr>
-            </thead>
-            <tbody id="rows"></tbody>
-          </table>
-          </div>
+          <div id="orderList" class="order-list">Cargando...</div>
         </div>
 
         <div id="detail" class="card" style="display:none;margin-top:12px"></div>
@@ -443,8 +436,8 @@
 
     function showUnauthorized(){
       // hide post-auth controls and list until user logs in
-      const rows = document.getElementById('rows');
-      if(rows) rows.innerHTML = '';
+      const orderList = document.getElementById('orderList');
+      if(orderList) orderList.innerHTML = '';
       const post = document.getElementById('postAuthControls'); if(post) post.style.display = 'none';
       const list = document.getElementById('list'); if(list) list.style.display = 'none';
       document.getElementById('detail').style.display = 'none';
@@ -574,34 +567,44 @@
       const clientHome = document.getElementById('clientHome');
       if(clientHome) clientHome.style.display = 'none';
       const state = document.getElementById('filterState').value;
-      const rows = document.getElementById('rows'); rows.innerHTML = '<tr><td colspan="6">Cargando...</td></tr>';
+      const orderList = document.getElementById('orderList');
+      if(orderList) orderList.innerHTML = '<div class="order-empty">Cargando...</div>';
       try{
         const orders = await fetchOrders();
         const filtered = orders.filter(o=> state==='all' ? true : o.status===state);
-        if(filtered.length===0){ rows.innerHTML = '<tr><td colspan="6">No hay pedidos</td></tr>'; return }
+        if(!orderList) return;
+        if(filtered.length===0){ orderList.innerHTML = '<div class="order-empty">No hay pedidos</div>'; return }
         document.getElementById('filterState').disabled = false;
         document.getElementById('reload').disabled = false;
         const canDispatch = current && (current.role === 'negocio' || current.role === 'admin');
-        rows.innerHTML = filtered.map(o=>{
-          const items = o.items.map(i=>`${esc(i.name)} x${esc(i.qty)}`).join(', ');
+        orderList.innerHTML = filtered.map(o=>{
+          const items = o.items.map(i=>`${esc(i.name)} ×${esc(i.qty)}`).join(' · ');
           const showDispatch = canDispatch && o.status !== 'out_for_delivery' && o.status !== 'delivered' && o.status !== 'cancelled';
           const showDeliver = canDispatch && o.status === 'out_for_delivery';
           const showCancel = canDispatch && o.status !== 'cancelled' && o.status !== 'delivered';
-          return `<tr>
-            <td>#${esc(o.id)}</td>
-            <td>${esc(o.customer_name || 'Anon')}<div class="small">${esc(new Date(o.created_at).toLocaleString())}${o.payment_method?` · ${esc(o.payment_method === 'transferencia' ? 'Transferencia' : 'Efectivo')}`:''}</div></td>
-            <td>${items}</td>
-            <td>${fmtMoney(o.total)}</td>
-            <td class="${orderStatusClass(o.status)}">${esc(orderStatusLabel(o.status))}${o.status==='cancelled'&&o.cancel_reason?`<div class="small">${esc(o.cancel_reason)}</div>`:''}</td>
-            <td class="order-actions">
-              <button class="btn" onclick="view(${Number(o.id)})">Ver</button>
-              <button class="btn btn-ghost" onclick="sendOrderWA(${Number(o.id)})">Enviar WA</button>
-              ${showDispatch ? `<button class="btn btn-dispatch" onclick="dispatchOrder(${Number(o.id)})">Confirmar y enviar a domicilio</button>` : ''}
-              ${showDeliver ? `<button class="btn btn-deliver" onclick="confirmDelivery(${Number(o.id)})">Confirmar entrega a domicilio</button>` : ''}
-              ${showCancel ? `<button class="btn btn-cancel-order" onclick="openCancelOrder(${Number(o.id)})">Cancelar pedido</button>` : ''}
-              ${o.status!=='paid' && o.status!=='out_for_delivery' && o.status!=='delivered' && o.status!=='cancelled' ? `<button class="btn" style="background:#059669" onclick="markPaid(${Number(o.id)})">Marcar como pagado</button>` : ''}
-            </td>
-          </tr>`
+          const showMarkPaid = o.status!=='paid' && o.status!=='out_for_delivery' && o.status!=='delivered' && o.status!=='cancelled';
+          const payLabel = o.payment_method === 'transferencia' ? 'Transferencia' : (o.payment_method === 'efectivo' ? 'Efectivo' : '');
+          return `<article class="order-card">
+            <div class="order-card-top">
+              <div class="order-card-id">#${esc(o.id)}</div>
+              <div class="${orderStatusClass(o.status)} order-card-status">${esc(orderStatusLabel(o.status))}</div>
+            </div>
+            <div class="order-card-main">
+              <strong class="order-card-customer">${esc(o.customer_name || 'Anon')}</strong>
+              <div class="small order-card-meta">${esc(new Date(o.created_at).toLocaleString())}${payLabel ? ' · ' + esc(payLabel) : ''}</div>
+              <div class="order-card-items">${items}</div>
+              ${o.status==='cancelled'&&o.cancel_reason?`<div class="small order-card-note">${esc(o.cancel_reason)}</div>`:''}
+            </div>
+            <div class="order-card-total">${fmtMoney(o.total)}</div>
+            <div class="order-actions">
+              <button class="btn" type="button" onclick="view(${Number(o.id)})">Ver</button>
+              <button class="btn btn-ghost" type="button" onclick="sendOrderWA(${Number(o.id)})">Enviar WA</button>
+              ${showDispatch ? `<button class="btn btn-dispatch" type="button" onclick="dispatchOrder(${Number(o.id)})">Enviar a domicilio</button>` : ''}
+              ${showDeliver ? `<button class="btn btn-deliver" type="button" onclick="confirmDelivery(${Number(o.id)})">Confirmar entrega</button>` : ''}
+              ${showMarkPaid ? `<button class="btn" type="button" style="background:#059669;color:#fff;border-color:#059669" onclick="markPaid(${Number(o.id)})">Marcar pagado</button>` : ''}
+              ${showCancel ? `<button class="btn btn-cancel-order" type="button" onclick="openCancelOrder(${Number(o.id)})">Cancelar</button>` : ''}
+            </div>
+          </article>`;
         }).join('');
       }catch(err){
         showUnauthorized();
@@ -2146,26 +2149,34 @@
               <div class="span-3"><button id="menuAdd" class="btn" type="button">Agregar</button></div>
             </div>
             <div id="menuMsg" class="small inline-msg" style="margin-top:8px;display:none"></div>
-            <div id="menuList" class="table-scroll" style="margin-top:12px">Cargando...</div>
+            <div id="menuList" style="margin-top:12px">Cargando...</div>
           `;
           const menuListEl = document.getElementById('menuList');
           async function loadMenuItems(){
             try{
               const res = await apiFetch('/api/menu/my'); if(!res.ok){ menuListEl.innerHTML='No autorizado'; return }
               const items = await res.json();
-              if(items.length===0){ menuListEl.innerHTML = '<div>No hay productos</div>'; return }
-              menuListEl.innerHTML = `<table style="width:100%;border-collapse:collapse"><thead><tr>
-                <th>Nombre</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Disp.</th><th>Acciones</th>
-              </tr></thead><tbody>${items.map(i=>`<tr data-id="${i.id}">
-                <td><strong>${esc(i.name)}</strong>${i.description?`<div class="small">${esc(i.description)}</div>`:''}</td>
-                <td>${esc(i.category||'—')}</td>
-                <td>${fmtMoney(i.price)}${i.unit?` <span class="small">/${esc(i.unit)}</span>`:''}</td>
-                <td>${i.stock==null?'—':esc(i.stock)}</td>
-                <td>${i.available? 'Sí':'No'}</td>
-                <td><button class="btn" data-action="edit">Editar</button> <button class="btn btn-ghost" data-action="del">Eliminar</button></td>
-              </tr>`).join('')}</tbody></table>`;
+              if(items.length===0){ menuListEl.innerHTML = '<div class="order-empty">No hay productos</div>'; return }
+              menuListEl.innerHTML = `<div class="menu-admin-list">${items.map(i=>`<article class="menu-admin-card" data-id="${i.id}">
+                <div class="menu-admin-card-top">
+                  <div>
+                    <strong>${esc(i.name)}</strong>
+                    ${i.description?`<div class="small">${esc(i.description)}</div>`:''}
+                  </div>
+                  <span class="market-chip">${esc(i.category||'General')}</span>
+                </div>
+                <div class="menu-admin-card-meta">
+                  <span>${fmtMoney(i.price)}${i.unit?` <span class="small">/${esc(i.unit)}</span>`:''}</span>
+                  <span class="small">Stock: ${i.stock==null?'—':esc(i.stock)}</span>
+                  <span class="small">${i.available? 'Disponible':'No disponible'}</span>
+                </div>
+                <div class="order-actions">
+                  <button class="btn" type="button" data-action="edit">Editar</button>
+                  <button class="btn btn-ghost" type="button" data-action="del">Eliminar</button>
+                </div>
+              </article>`).join('')}</div>`;
               menuListEl.querySelectorAll('button[data-action]').forEach(b=> b.addEventListener('click', async (e)=>{
-                const tr = e.target.closest('tr'); const id = tr.getAttribute('data-id'); const action = e.target.getAttribute('data-action');
+                const card = e.target.closest('[data-id]'); const id = card.getAttribute('data-id'); const action = e.target.getAttribute('data-action');
                 const item = items.find(x => String(x.id) === String(id));
                 if(action === 'del'){
                   if(!confirm('Eliminar este producto?')) return; const r = await apiFetch('/api/menu/'+id,{ method:'DELETE' }); if(!r.ok){ alert('Error'); return } loadMenuItems();
