@@ -1742,7 +1742,7 @@
                       return `<article class="dash-order">
                         <div class="dash-order-top">
                           <strong>#${esc(o.id)} · ${esc(o.customer_name || 'Anon')}</strong>
-                          <span class="${o.status==='paid'?'status-paid':'status-pending'}">${esc(o.status)}</span>
+                          <span class="${orderStatusClass(o.status)}">${esc(orderStatusLabel(o.status))}</span>
                         </div>
                         <div class="dash-order-meta">
                           <span>${fmtMoney(o.total)}</span>
