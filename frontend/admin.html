@@ -577,7 +577,7 @@
       const current = getUser();
       const canDispatch = current && (current.role === 'negocio' || current.role === 'admin');
       orderList.innerHTML = filtered.map(o=>{
-        const items = o.items.map(i=>`${esc(i.name)} ×${esc(i.qty)}`).join(' · ');
+        const items = (o.items || []).map(i=>`${esc(i.name)} ×${esc(i.qty)}`).join(' · ');
         const showDispatch = canDispatch && o.status !== 'out_for_delivery' && o.status !== 'delivered' && o.status !== 'cancelled';
         const showDeliver = canDispatch && o.status === 'out_for_delivery';
         const showCancel = canDispatch && o.status !== 'cancelled' && o.status !== 'delivered';
@@ -645,6 +645,12 @@
       showAuthorized();
       const clientHome = document.getElementById('clientHome');
       if(clientHome) clientHome.style.display = 'none';
+      if(_currentSection === 'orders'){
+        const post = document.getElementById('postAuthControls');
+        if(post) post.style.display = 'block';
+        const list = document.getElementById('list');
+        if(list) list.style.display = 'block';
+      }
       const orderList = document.getElementById('orderList');
       if(orderList) orderList.innerHTML = '<div class="order-empty">Cargando...</div>';
       try{
@@ -1645,17 +1651,15 @@
           const navStatus = document.getElementById('navStatus');
           if(navStatus) navStatus.style.display = user.role === 'admin' ? 'list-item' : 'none';
           updateOpenStatusUI(user);
-          const post = document.getElementById('postAuthControls'); if(post) post.style.display = 'none';
-          const list = document.getElementById('list'); if(list) list.style.display = 'none';
           const controls = document.getElementById('controls'); if(controls) controls.style.display = '';
           const clientHome = document.getElementById('clientHome');
           if(clientHome){ clientHome.style.display = 'none'; clientHome.innerHTML = ''; }
-          const d = document.getElementById('detail'); if(d) d.style.display='none';
           const title = document.querySelector('.admin-title');
           const subtitle = document.querySelector('.admin-subtitle');
           if(title) title.textContent = 'WhatsMenú — Panel';
           if(subtitle) subtitle.textContent = 'Operación del negocio';
           if(layout) layout.classList.remove('is-client');
+          // Pedidos / detalle: los muestra showSection; no ocultarlos aquí (load() llama updateAuthUI)
         } else if(user.role === 'cliente'){
           if(layout){ layout.classList.add('is-guest'); layout.classList.remove('is-auth'); layout.classList.add('is-client'); }
           if(menuToggle) menuToggle.style.display = 'none';
@@ -1823,7 +1827,10 @@
       const overlay = document.getElementById('sidebarOverlay');
       if(overlay) overlay.hidden = false;
     }
+    let _currentSection = '';
+
     function showSection(section){
+      _currentSection = section;
       closeMobileSidebar();
       hideOrderDetail();
       // clear active
