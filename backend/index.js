@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const { sendMail, welcomeEmail, confirmEmail } = require('./mail');
 
 const app = express();
 app.set('trust proxy', true);
@@ -83,7 +84,21 @@ function mapMongoToDb(users, menus, orders, inventories, cash) {
       paid_at: o.paid_at,
       proof_submitted_at: o.proof_submitted_at || null
     })),
-    users: (users || []).map(u => ({ id: u.legacyId || 0, username: u.username, salt: u.salt, hash: u.hash, role: u.role, business: u.business })),
+    users: (users || []).map(u => ({
+      id: u.legacyId || 0,
+      username: u.username,
+      salt: u.salt,
+      hash: u.hash,
+      role: u.role,
+      business: u.business,
+      email: u.email || '',
+      emailVerified: u.emailVerified !== false,
+      googleId: u.googleId || null,
+      authProvider: u.authProvider || 'local',
+      confirmToken: u.confirmToken || null,
+      confirmCode: u.confirmCode || null,
+      confirmExpires: u.confirmExpires || null
+    })),
     inventories: (inventories || []).map(i => ({ id: i.legacyId || 0, ownerId: i.legacyOwnerId || null, name: i.name, qty: i.qty, unit: i.unit })),
     cash: (cash || []).map(c => ({ id: c.legacyId || 0, ownerId: c.legacyOwnerId || null, type: c.type, amount: c.amount, note: c.note, created_at: c.created_at }))
   };
@@ -183,7 +198,23 @@ async function writeDB(current) {
   for (const u of current.users || []) {
     ops.push(mongoModels.User.updateOne(
       { legacyId: u.id },
-      { $set: { legacyId: u.id, username: u.username, role: u.role, salt: u.salt, hash: u.hash, business: u.business || null } },
+      {
+        $set: {
+          legacyId: u.id,
+          username: u.username,
+          role: u.role,
+          salt: u.salt,
+          hash: u.hash,
+          business: u.business || null,
+          email: u.email || '',
+          emailVerified: u.emailVerified !== false,
+          googleId: u.googleId || null,
+          authProvider: u.authProvider || 'local',
+          confirmToken: u.confirmToken || null,
+          confirmCode: u.confirmCode || null,
+          confirmExpires: u.confirmExpires || null
+        }
+      },
       { upsert: true }
     ));
   }
@@ -526,6 +557,81 @@ function validateToken(token) {
   try { return jwt.verify(token, JWT_SECRET); } catch (e) { return false; }
 }
 
+function publicBaseUrl(req) {
+  if (process.env.APP_BASE_URL) return process.env.APP_BASE_URL.replace(/\/$/, '');
+  const host = req.get('x-forwarded-host') || req.get('host') || 'tiagoo.vercel.app';
+  const proto = (req.get('x-forwarded-proto') || req.protocol || 'https').split(',')[0].trim();
+  return `${proto}://${host}`;
+}
+
+function isEmailVerified(user) {
+  if (!user) return false;
+  if (user.authProvider === 'google') return true;
+  if (typeof user.emailVerified === 'boolean') return user.emailVerified;
+  // legacy accounts created before email confirmation
+  return true;
+}
+
+function makeConfirmSecrets() {
+  const confirmCode = String(Math.floor(100000 + Math.random() * 900000));
+  const confirmToken = crypto.randomBytes(24).toString('hex');
+  const confirmExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  return { confirmCode, confirmToken, confirmExpires };
+}
+
+function buildBusiness(role, business, username, userId, dbRef) {
+  if (role !== 'negocio' || !business || typeof business !== 'object') return null;
+  const biz = {
+    name: business.name || '',
+    email: business.email || '',
+    phone: business.phone || '',
+    address: business.address || '',
+    is_open: true,
+    store_kind: ['market', 'restaurant'].includes(business.store_kind) ? business.store_kind : 'restaurant',
+    categories: Array.isArray(business.categories)
+      ? business.categories.map(c => String(c).slice(0, 60)).filter(Boolean).slice(0, 20)
+      : []
+  };
+  const slugBase = (business.name || username || 'biz').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  let slug = slugBase || (`biz-${userId}`);
+  const used = new Set(dbRef.users.filter(u => u.business && u.business.slug).map(u => u.business.slug));
+  if (used.has(slug)) slug = slug + '-' + userId;
+  biz.slug = slug;
+  return biz;
+}
+
+function publicUser(user) {
+  const out = {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    email: user.email || '',
+    emailVerified: isEmailVerified(user),
+    authProvider: user.authProvider || 'local'
+  };
+  if (user.business) out.business = user.business;
+  return out;
+}
+
+async function verifyGoogleIdToken(credential) {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) throw new Error('Google Sign-In no está configurado (GOOGLE_CLIENT_ID)');
+  if (!credential) throw new Error('credential required');
+  const url = 'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(credential);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Token de Google inválido');
+  const data = await res.json();
+  if (data.aud !== clientId) throw new Error('Client ID de Google no coincide');
+  if (data.email_verified !== 'true' && data.email_verified !== true) throw new Error('Email de Google no verificado');
+  if (!data.email) throw new Error('Google no devolvió email');
+  return {
+    googleId: data.sub,
+    email: String(data.email).toLowerCase(),
+    name: data.name || '',
+    picture: data.picture || ''
+  };
+}
+
 function requireAuth(req, res, next) {
   const parts = (req.headers.authorization || '').split(' ');
   if (parts.length === 2 && parts[0] === 'Bearer') {
@@ -585,13 +691,175 @@ app.post('/api/login', (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: 'username and password required' });
   db = readDB();
-  const user = db.users.find(u => u.username === username);
+  const user = db.users.find(u => u.username === username || (u.email && u.email.toLowerCase() === String(username).toLowerCase()));
+  if (user && user.authProvider === 'google' && !user.hash) {
+    return res.status(401).json({ error: 'Esta cuenta usa Google. Inicia sesión con Google.' });
+  }
   if (user && verifyPassword(password, user.salt, user.hash)) {
-    const out = { id: user.id, username: user.username, role: user.role };
-    if (user.business) out.business = user.business;
-    return res.json({ token: createToken(user.id), user: out });
+    if (!isEmailVerified(user)) {
+      return res.status(403).json({
+        error: 'Debes confirmar tu correo antes de iniciar sesión',
+        pending_confirmation: true,
+        email: user.email || null
+      });
+    }
+    return res.json({ token: createToken(user.id), user: publicUser(user) });
   }
   return res.status(401).json({ error: 'Invalid credentials' });
+});
+
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const { credential, role, business } = req.body || {};
+    const google = await verifyGoogleIdToken(credential);
+    db = readDB();
+
+    let user = db.users.find(u => u.googleId === google.googleId)
+      || db.users.find(u => u.email && u.email.toLowerCase() === google.email);
+
+    if (user) {
+      user.googleId = google.googleId;
+      user.email = google.email;
+      user.emailVerified = true;
+      if (!user.authProvider) user.authProvider = user.hash ? 'local' : 'google';
+      if (!user.hash) user.authProvider = 'google';
+      user.confirmToken = null;
+      user.confirmCode = null;
+      user.confirmExpires = null;
+      await writeDB(db);
+      return res.json({
+        token: createToken(user.id),
+        user: publicUser(user),
+        created: false,
+        message: 'Inicio de sesión con Google correcto'
+      });
+    }
+
+    const regRole = ['cliente', 'negocio'].includes(role) ? role : 'cliente';
+    if (regRole === 'negocio') {
+      if (!business || !business.name || !business.phone || !business.address) {
+        return res.status(400).json({
+          error: 'Para negocio con Google completa nombre, teléfono y dirección antes de continuar',
+          needs_business: true
+        });
+      }
+    }
+
+    const baseUser = (google.email.split('@')[0] || 'user').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 18) || 'user';
+    let username = baseUser;
+    let n = 1;
+    while (db.users.find(u => u.username === username)) {
+      username = `${baseUser}${n++}`.slice(0, 24);
+    }
+
+    const userId = ++db.lastUserId;
+    user = {
+      id: userId,
+      username,
+      salt: null,
+      hash: null,
+      role: regRole,
+      email: google.email,
+      emailVerified: true,
+      googleId: google.googleId,
+      authProvider: 'google',
+      confirmToken: null,
+      confirmCode: null,
+      confirmExpires: null
+    };
+    const biz = buildBusiness(regRole, { ...(business || {}), email: (business && business.email) || google.email }, username, userId, db);
+    if (biz) user.business = biz;
+
+    db.users.push(user);
+    await writeDB(db);
+
+    const mailContent = welcomeEmail({ name: google.name || (biz && biz.name), username });
+    const mailResult = await sendMail({ to: google.email, ...mailContent });
+
+    return res.json({
+      token: createToken(user.id),
+      user: publicUser(user),
+      created: true,
+      message: 'Te registraste con éxito en WhatsMenú. Te enviamos un breve mensaje de bienvenida a tu Gmail.',
+      mail_sent: !!mailResult.sent
+    });
+  } catch (e) {
+    return res.status(400).json({ error: e.message || 'Google auth failed' });
+  }
+});
+
+app.post('/api/auth/confirm', async (req, res) => {
+  const { token, code, email } = req.body || {};
+  db = readDB();
+  let user = null;
+  if (token) {
+    user = db.users.find(u => u.confirmToken && u.confirmToken === token);
+  } else if (code && email) {
+    user = db.users.find(u =>
+      u.email && u.email.toLowerCase() === String(email).toLowerCase()
+      && u.confirmCode && u.confirmCode === String(code).trim()
+    );
+  } else {
+    return res.status(400).json({ error: 'token o (email + code) requeridos' });
+  }
+  if (!user) return res.status(400).json({ error: 'Código o enlace inválido' });
+  if (user.confirmExpires && new Date(user.confirmExpires).getTime() < Date.now()) {
+    return res.status(400).json({ error: 'El código expiró. Regístrate de nuevo o solicita otro.' });
+  }
+  user.emailVerified = true;
+  user.confirmToken = null;
+  user.confirmCode = null;
+  user.confirmExpires = null;
+  await writeDB(db);
+
+  const mailContent = welcomeEmail({ name: user.business && user.business.name, username: user.username });
+  if (user.email) await sendMail({ to: user.email, ...mailContent });
+
+  return res.json({
+    token: createToken(user.id),
+    user: publicUser(user),
+    message: 'Cuenta confirmada con éxito. ¡Bienvenido a WhatsMenú!'
+  });
+});
+
+app.post('/api/auth/resend-confirm', async (req, res) => {
+  const { email, username } = req.body || {};
+  db = readDB();
+  const user = db.users.find(u =>
+    (email && u.email && u.email.toLowerCase() === String(email).toLowerCase())
+    || (username && u.username === username)
+  );
+  if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+  if (isEmailVerified(user)) return res.json({ ok: true, message: 'La cuenta ya está confirmada' });
+  if (!user.email) return res.status(400).json({ error: 'La cuenta no tiene correo' });
+
+  const secrets = makeConfirmSecrets();
+  user.confirmCode = secrets.confirmCode;
+  user.confirmToken = secrets.confirmToken;
+  user.confirmExpires = secrets.confirmExpires;
+  await writeDB(db);
+
+  const confirmUrl = `${publicBaseUrl(req)}/admin.html?confirm=${encodeURIComponent(secrets.confirmToken)}`;
+  const mailContent = confirmEmail({
+    name: user.business && user.business.name,
+    username: user.username,
+    code: secrets.confirmCode,
+    confirmUrl
+  });
+  const mailResult = await sendMail({ to: user.email, ...mailContent });
+  const payload = {
+    ok: true,
+    message: mailResult.sent
+      ? 'Te reenviamos el código de confirmación a tu correo'
+      : 'No pudimos enviar el correo. Usa el código o enlace de esta respuesta.',
+    mail_sent: !!mailResult.sent,
+    email: user.email
+  };
+  if (!mailResult.sent) {
+    payload.dev_confirm_code = secrets.confirmCode;
+    payload.dev_confirm_url = confirmUrl;
+  }
+  return res.json(payload);
 });
 
 app.get('/api/admin/users', requireAdmin, (req, res) => {
@@ -743,37 +1011,67 @@ app.get('/api/admin/status', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/register', async (req, res) => {
-  const { username, password, role, business } = req.body || {};
+  const { username, password, role, email, business } = req.body || {};
   if (!username || !password || !role) return res.status(400).json({ error: 'username, password and role required' });
   if (password.length < 6) return res.status(400).json({ error: 'password must be at least 6 characters' });
   if (!['cliente', 'negocio'].includes(role)) return res.status(400).json({ error: 'role must be cliente or negocio' });
+
+  const emailNorm = String(email || (business && business.email) || '').trim().toLowerCase();
+  if (!emailNorm || !/^\S+@\S+\.\S+$/.test(emailNorm)) {
+    return res.status(400).json({ error: 'email válido requerido para confirmar la cuenta' });
+  }
+
   db = readDB();
   if (db.users.find(u => u.username === username)) return res.status(400).json({ error: 'username already exists' });
-  const { salt, hash } = hashPassword(password);
-  const user = { id: ++db.lastUserId, username, salt, hash, role };
-  if (role === 'negocio' && business && typeof business === 'object') {
-    user.business = {
-      name: business.name || '',
-      email: business.email || '',
-      phone: business.phone || '',
-      address: business.address || '',
-      is_open: true,
-      store_kind: ['market', 'restaurant'].includes(business.store_kind) ? business.store_kind : 'restaurant',
-      categories: Array.isArray(business.categories)
-        ? business.categories.map(c => String(c).slice(0, 60)).filter(Boolean).slice(0, 20)
-        : []
-    };
-    const slugBase = (business.name || username || 'biz').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    let slug = slugBase || (`biz-${user.id}`);
-    const used = new Set(db.users.filter(u => u.business && u.business.slug).map(u => u.business.slug));
-    if (used.has(slug)) slug = slug + '-' + user.id;
-    user.business.slug = slug;
+  if (db.users.find(u => u.email && u.email.toLowerCase() === emailNorm)) {
+    return res.status(400).json({ error: 'Ya existe una cuenta con ese correo' });
   }
+
+  const { salt, hash } = hashPassword(password);
+  const secrets = makeConfirmSecrets();
+  const userId = ++db.lastUserId;
+  const user = {
+    id: userId,
+    username,
+    salt,
+    hash,
+    role,
+    email: emailNorm,
+    emailVerified: false,
+    authProvider: 'local',
+    googleId: null,
+    confirmToken: secrets.confirmToken,
+    confirmCode: secrets.confirmCode,
+    confirmExpires: secrets.confirmExpires
+  };
+  const biz = buildBusiness(role, { ...(business || {}), email: emailNorm }, username, userId, db);
+  if (biz) user.business = biz;
+
   db.users.push(user);
   await writeDB(db);
-  const userOut = { id: user.id, username: user.username, role: user.role };
-  if (user.business) userOut.business = user.business;
-  res.json({ token: createToken(user.id), user: userOut });
+
+  const confirmUrl = `${publicBaseUrl(req)}/admin.html?confirm=${encodeURIComponent(secrets.confirmToken)}`;
+  const mailContent = confirmEmail({
+    name: biz && biz.name,
+    username,
+    code: secrets.confirmCode,
+    confirmUrl
+  });
+  const mailResult = await sendMail({ to: emailNorm, ...mailContent });
+
+  const payload = {
+    pending_confirmation: true,
+    email: emailNorm,
+    message: mailResult.sent
+      ? 'Te enviamos un código y un enlace a tu correo para confirmar la creación de la cuenta.'
+      : 'Cuenta creada. Confirma con el código o enlace (el correo no se pudo enviar automáticamente).',
+    mail_sent: !!mailResult.sent
+  };
+  if (!mailResult.sent) {
+    payload.confirm_code = secrets.confirmCode;
+    payload.confirm_url = confirmUrl;
+  }
+  res.json(payload);
 });
 
 app.get('/api/me', requireAuth, (req, res) => {
@@ -851,7 +1149,9 @@ app.post('/api/me/banner', requireAuth, (req, res) => saveBusinessImage(req, res
 app.get('/api/config', (req, res) => {
   res.json({
     whatsapp_number: process.env.WHATSAPP_NUMBER || '573001234567',
-    checkout_base: process.env.CHECKOUT_BASE || defaultCheckoutBase(req)
+    checkout_base: process.env.CHECKOUT_BASE || defaultCheckoutBase(req),
+    google_client_id: process.env.GOOGLE_CLIENT_ID || '',
+    google_enabled: !!process.env.GOOGLE_CLIENT_ID
   });
 });
 

@@ -134,7 +134,22 @@ button{cursor:pointer;font-family:inherit}
 .modal .form-row{display:flex;gap:8px;align-items:center}
 .modal input{flex:1}
 .modal .roles{display:flex;gap:12px;align-items:center}
-.modal .modal-actions{display:flex;justify-content:flex-end;margin-top:12px}
+.modal .modal-actions{display:flex;justify-content:flex-end;margin-top:12px;flex-wrap:wrap;gap:8px}
+.btn-google{
+  width:100%;display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  margin-top:4px;padding:12px 16px;border-radius:999px;border:1px solid var(--line);
+  background:#fff;color:#1f1f1f;font-weight:750;cursor:pointer;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.btn-google:hover{transform:translateY(-1px);border-color:#dadce0;box-shadow:0 6px 16px rgba(20,32,27,0.08)}
+.btn-google.is-loading{opacity:.7;pointer-events:none}
+html[data-theme="dark"] .btn-google{background:#151c19;color:var(--ink);border-color:var(--line)}
+#googleBtnHost{width:100%;justify-content:center;margin-top:4px}
+.reg-divider{
+  display:flex;align-items:center;gap:12px;margin:14px 0 6px;color:var(--muted);font-size:.8rem;font-weight:700;
+}
+.reg-divider::before,.reg-divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.reg-divider span{white-space:nowrap}
 
 #list table{width:100%;border-collapse:collapse}
 #list th, #list td{padding:12px 10px;text-align:left;border-bottom:1px solid var(--line)}

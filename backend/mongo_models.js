@@ -6,6 +6,13 @@ const userSchema = new mongoose.Schema({
   role: String,
   salt: String,
   hash: String,
+  email: { type: String, index: true, sparse: true },
+  emailVerified: { type: Boolean, default: true },
+  googleId: { type: String, index: true, sparse: true },
+  authProvider: { type: String, default: 'local' },
+  confirmToken: String,
+  confirmCode: String,
+  confirmExpires: Date,
   business: Object
 }, { timestamps: true });
 
