@@ -466,7 +466,24 @@
         const res = await fetch('/api/login', { method: 'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ username: user, password: pass }) });
         const data = await res.json().catch(()=>({}));
         if(res.status === 403 && data.pending_confirmation){
-          showConfirmForm({ email: data.email || user, tip: data.error || 'Confirma tu correo para continuar' });
+          const emailPending = data.email || user;
+          showConfirmForm({ email: emailPending, tip: 'Sin SMTP aún: pulsa «Reenviar código» para ver el código en pantalla.' });
+          // Auto-resend so testing without mail still shows the code
+          try{
+            const rr = await fetch('/api/auth/resend-confirm', {
+              method:'POST',
+              headers:{'content-type':'application/json'},
+              body: JSON.stringify({ email: emailPending })
+            });
+            const rd = await rr.json().catch(()=>({}));
+            if(rd.dev_confirm_code){
+              showInlineMessage('confirmMsg', 'Código de prueba: ' + rd.dev_confirm_code + ' (cuando configures SMTP llegará al correo)', 'success');
+              const codeEl = document.getElementById('confirmCode');
+              if(codeEl) codeEl.value = rd.dev_confirm_code;
+            } else if(rd.mail_sent){
+              showInlineMessage('confirmMsg', rd.message || 'Revisa tu correo', 'success');
+            }
+          }catch(e){}
           return;
         }
         if(!res.ok){ throw new Error(data.error || 'Credenciales inválidas'); }
