@@ -449,10 +449,10 @@
     }
 
     function showAuthorized(){
-      const post = document.getElementById('postAuthControls'); if(post) post.style.display = 'block';
-      const list = document.getElementById('list'); if(list) list.style.display = 'block';
       document.getElementById('filterState').disabled = false;
       document.getElementById('reload').disabled = false;
+      const orderSearch = document.getElementById('orderSearch');
+      if(orderSearch) orderSearch.disabled = false;
     }
 
     function showInlineMessage(id, msg, type){
@@ -1645,8 +1645,8 @@
           const navStatus = document.getElementById('navStatus');
           if(navStatus) navStatus.style.display = user.role === 'admin' ? 'list-item' : 'none';
           updateOpenStatusUI(user);
-          const post = document.getElementById('postAuthControls'); if(post) post.style.display = 'block';
-          const list = document.getElementById('list'); if(list) list.style.display = 'block';
+          const post = document.getElementById('postAuthControls'); if(post) post.style.display = 'none';
+          const list = document.getElementById('list'); if(list) list.style.display = 'none';
           const controls = document.getElementById('controls'); if(controls) controls.style.display = '';
           const clientHome = document.getElementById('clientHome');
           if(clientHome){ clientHome.style.display = 'none'; clientHome.innerHTML = ''; }
@@ -1830,8 +1830,10 @@
       document.querySelectorAll('.side-link').forEach(a=> a.classList.remove('active'));
       const sel = document.querySelector('.side-link[data-section="'+section+'"]'); if(sel) sel.classList.add('active');
       const detail = document.getElementById('detail'); const list = document.getElementById('list');
-      // default hide both
+      const post = document.getElementById('postAuthControls');
+      // default hide both; order filters only on Pedidos
       if(detail) detail.style.display='none'; if(list) list.style.display='none';
+      if(post) post.style.display = section === 'orders' ? 'block' : 'none';
       if(section === 'dashboard'){
         if(detail){
           detail.style.display='block';
@@ -1962,7 +1964,8 @@
         }
         if(list) list.style.display='none';
       } else if(section === 'orders'){
-        if(list) { list.style.display='block'; load(); }
+        if(list) list.style.display = 'block';
+        load();
       } else if(section === 'negocios'){
         if(detail){
           detail.style.display='block';
@@ -2173,37 +2176,47 @@
             ? user.business.categories
             : (isMarket ? ['Carnicería','Legumbrería','Comestibles'] : ['']);
           detail.innerHTML = `
-            <h3>Catálogo</h3>
-            <div class="small">${isMarket ? 'Catálogo del mini súper por categoría, stock y costo' : 'Gestiona los productos de tu negocio'}</div>
-            <div class="menu-form-grid">
-              <label class="span-2">Nombre
-                <input id="menuName" placeholder="Nombre del producto" />
-              </label>
-              <label>Costo / precio
-                <input id="menuPrice" type="number" min="0" step="100" placeholder="0" />
-              </label>
-              <label class="span-3">Descripción
-                <input id="menuDesc" placeholder="Descripción corta" />
-              </label>
-              <label>Categoría
-                <select id="menuCat">
-                  ${cats.map(c => `<option value="${esc(c)}">${esc(c || 'Sin categoría')}</option>`).join('')}
-                  ${isMarket ? '' : '<option value="">General</option>'}
-                </select>
-              </label>
-              <label>Cantidad (stock)
-                <input id="menuStock" type="number" min="0" step="1" placeholder="Opcional" />
-              </label>
-              <label>Unidad
-                <input id="menuUnit" placeholder="kg, lb, und..." />
-              </label>
-              <label style="flex-direction:row;align-items:center;gap:8px;margin-top:18px">
-                <input id="menuAvail" type="checkbox" checked /> Disponible
-              </label>
-              <div class="span-3"><button id="menuAdd" class="btn" type="button">Agregar</button></div>
+            <div class="catalog-head">
+              <div>
+                <h3 style="margin:0">Catálogo</h3>
+                <div class="small" style="margin-top:6px">${isMarket ? 'Catálogo del mini súper por categoría, stock y costo' : 'Gestiona los productos de tu negocio'}</div>
+              </div>
+              <button id="menuShowForm" class="btn" type="button">Agregar</button>
             </div>
-            <div id="menuMsg" class="small inline-msg" style="margin-top:8px;display:none"></div>
-            <div class="admin-toolbar" style="margin-top:12px">
+            <div id="menuFormWrap" class="menu-form-wrap" hidden>
+              <div class="menu-form-grid">
+                <label class="span-2">Nombre
+                  <input id="menuName" placeholder="Nombre del producto" />
+                </label>
+                <label>Costo / precio
+                  <input id="menuPrice" type="number" min="0" step="100" placeholder="0" />
+                </label>
+                <label class="span-3">Descripción
+                  <input id="menuDesc" placeholder="Descripción corta" />
+                </label>
+                <label>Categoría
+                  <select id="menuCat">
+                    ${cats.map(c => `<option value="${esc(c)}">${esc(c || 'Sin categoría')}</option>`).join('')}
+                    ${isMarket ? '' : '<option value="">General</option>'}
+                  </select>
+                </label>
+                <label>Cantidad (stock)
+                  <input id="menuStock" type="number" min="0" step="1" placeholder="Opcional" />
+                </label>
+                <label>Unidad
+                  <input id="menuUnit" placeholder="kg, lb, und..." />
+                </label>
+                <label style="flex-direction:row;align-items:center;gap:8px;margin-top:18px">
+                  <input id="menuAvail" type="checkbox" checked /> Disponible
+                </label>
+                <div class="span-3 menu-form-actions">
+                  <button id="menuAdd" class="btn" type="button">Guardar producto</button>
+                  <button id="menuCancelForm" class="btn btn-ghost" type="button">Cancelar</button>
+                </div>
+              </div>
+              <div id="menuMsg" class="small inline-msg" style="margin-top:8px;display:none"></div>
+            </div>
+            <div class="admin-toolbar" style="margin-top:14px">
               <label class="admin-toolbar-field admin-search-field">Buscar producto
                 <input id="menuSearch" type="search" placeholder="Nombre, categoría, descripción..." />
               </label>
@@ -2211,6 +2224,23 @@
             <div id="menuList" style="margin-top:12px">Cargando...</div>
           `;
           const menuListEl = document.getElementById('menuList');
+          const menuFormWrap = document.getElementById('menuFormWrap');
+          const menuShowFormBtn = document.getElementById('menuShowForm');
+          function openMenuForm(){
+            if(menuFormWrap) menuFormWrap.hidden = false;
+            if(menuShowFormBtn) menuShowFormBtn.style.display = 'none';
+            const nameEl = document.getElementById('menuName');
+            if(nameEl) nameEl.focus();
+          }
+          function closeMenuForm(){
+            if(menuFormWrap) menuFormWrap.hidden = true;
+            if(menuShowFormBtn) menuShowFormBtn.style.display = '';
+            const msgEl = document.getElementById('menuMsg');
+            if(msgEl){ msgEl.style.display = 'none'; msgEl.textContent = ''; }
+          }
+          if(menuShowFormBtn) menuShowFormBtn.addEventListener('click', openMenuForm);
+          const menuCancelForm = document.getElementById('menuCancelForm');
+          if(menuCancelForm) menuCancelForm.addEventListener('click', closeMenuForm);
           let _menuCache = [];
           function getMenuSearchQuery(){
             const el = document.getElementById('menuSearch');
@@ -2293,6 +2323,7 @@
             document.getElementById('menuDesc').value=''; document.getElementById('menuStock').value='';
             document.getElementById('menuUnit').value=''; document.getElementById('menuAvail').checked=true;
             msgEl.textContent='Agregado'; msgEl.className='small inline-msg success'; msgEl.style.display='block';
+            closeMenuForm();
             loadMenuItems();
           });
         }

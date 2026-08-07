@@ -393,9 +393,15 @@ body.is-logged-out{overflow:auto}
 .admin-toolbar-field input{min-height:40px;border-radius:10px;border:1px solid var(--border);background:#fff;padding:8px 12px;font:inherit;color:var(--text)}
 .admin-search-field{flex:1;min-width:min(100%,220px)}
 .admin-search-field input{width:100%}
+.catalog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:4px}
+.catalog-head .btn{flex-shrink:0}
+.menu-form-wrap{margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.menu-form-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 @media (max-width:640px){
   .admin-toolbar{flex-direction:column;align-items:stretch}
   .admin-toolbar .btn{width:100%}
+  .catalog-head{flex-direction:column;align-items:stretch}
+  .catalog-head .btn{width:100%}
 }
 .order-empty{
   padding:28px 16px;text-align:center;color:var(--muted);font-weight:700;
