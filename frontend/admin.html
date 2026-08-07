@@ -145,17 +145,22 @@
 
           <!-- Controls visible only after login -->
           <div id="postAuthControls" style="display:none;margin-top:12px">
-            <label>Filtrar estado: 
-              <select id="filterState">
-                <option value="all">Todos</option>
-                <option value="pending">Pendientes</option>
-                <option value="paid">Pagados</option>
-                <option value="out_for_delivery">En domicilio</option>
-                <option value="delivered">Entregados</option>
-                <option value="cancelled">Cancelados</option>
-              </select>
-            </label>
-            <button id="reload" class="btn btn-ghost" style="margin-left:12px">Refrescar</button>
+            <div class="admin-toolbar">
+              <label class="admin-toolbar-field">Filtrar estado
+                <select id="filterState">
+                  <option value="all">Todos</option>
+                  <option value="pending">Pendientes</option>
+                  <option value="paid">Pagados</option>
+                  <option value="out_for_delivery">En domicilio</option>
+                  <option value="delivered">Entregados</option>
+                  <option value="cancelled">Cancelados</option>
+                </select>
+              </label>
+              <label class="admin-toolbar-field admin-search-field">Buscar pedido
+                <input id="orderSearch" type="search" placeholder="Cliente, #pedido, producto..." />
+              </label>
+              <button id="reload" class="btn btn-ghost" type="button">Refrescar</button>
+            </div>
           </div>
         </div>
 
@@ -539,6 +544,80 @@
       return res.json();
     }
 
+    let _ordersCache = [];
+
+    function getOrderSearchQuery(){
+      const el = document.getElementById('orderSearch');
+      return ((el && el.value) || '').trim().toLowerCase();
+    }
+
+    function orderMatchesSearch(o, q){
+      if(!q) return true;
+      const parts = [
+        '#' + o.id,
+        String(o.id),
+        o.customer_name || '',
+        o.customer_phone || '',
+        orderStatusLabel(o.status),
+        o.status || '',
+        o.payment_method || '',
+        o.cancel_reason || '',
+        ...((o.items || []).map(i => (i.name || '') + ' ' + (i.qty || '')))
+      ];
+      return parts.join(' ').toLowerCase().includes(q);
+    }
+
+    function renderOrdersList(filtered){
+      const orderList = document.getElementById('orderList');
+      if(!orderList) return;
+      if(!filtered.length){
+        orderList.innerHTML = '<div class="order-empty">No hay pedidos' + (getOrderSearchQuery() ? ' con esa búsqueda' : '') + '</div>';
+        return;
+      }
+      const current = getUser();
+      const canDispatch = current && (current.role === 'negocio' || current.role === 'admin');
+      orderList.innerHTML = filtered.map(o=>{
+        const items = o.items.map(i=>`${esc(i.name)} ×${esc(i.qty)}`).join(' · ');
+        const showDispatch = canDispatch && o.status !== 'out_for_delivery' && o.status !== 'delivered' && o.status !== 'cancelled';
+        const showDeliver = canDispatch && o.status === 'out_for_delivery';
+        const showCancel = canDispatch && o.status !== 'cancelled' && o.status !== 'delivered';
+        const showMarkPaid = o.status!=='paid' && o.status!=='out_for_delivery' && o.status!=='delivered' && o.status!=='cancelled';
+        const payLabel = o.payment_method === 'transferencia' ? 'Transferencia' : (o.payment_method === 'efectivo' ? 'Efectivo' : '');
+        return `<article class="order-card">
+          <div class="order-card-top">
+            <div class="order-card-id">#${esc(o.id)}</div>
+            <div class="${orderStatusClass(o.status)} order-card-status">${esc(orderStatusLabel(o.status))}</div>
+          </div>
+          <div class="order-card-main">
+            <strong class="order-card-customer">${esc(o.customer_name || 'Anon')}</strong>
+            <div class="small order-card-meta">${esc(new Date(o.created_at).toLocaleString())}${payLabel ? ' · ' + esc(payLabel) : ''}</div>
+            <div class="order-card-items">${items}</div>
+            ${o.status==='cancelled'&&o.cancel_reason?`<div class="small order-card-note">${esc(o.cancel_reason)}</div>`:''}
+          </div>
+          <div class="order-card-total">${fmtMoney(o.total)}</div>
+          <div class="order-actions">
+            <button class="btn" type="button" onclick="view(${Number(o.id)})">Ver</button>
+            <button class="btn btn-ghost" type="button" onclick="sendOrderWA(${Number(o.id)})">Enviar WA</button>
+            ${showDispatch ? `<button class="btn btn-dispatch" type="button" onclick="dispatchOrder(${Number(o.id)})">Enviar a domicilio</button>` : ''}
+            ${showDeliver ? `<button class="btn btn-deliver" type="button" onclick="confirmDelivery(${Number(o.id)})">Confirmar entrega</button>` : ''}
+            ${showMarkPaid ? `<button class="btn" type="button" style="background:#059669;color:#fff;border-color:#059669" onclick="markPaid(${Number(o.id)})">Marcar pagado</button>` : ''}
+            ${showCancel ? `<button class="btn btn-cancel-order" type="button" onclick="openCancelOrder(${Number(o.id)})">Cancelar</button>` : ''}
+          </div>
+        </article>`;
+      }).join('');
+    }
+
+    function applyOrdersFilter(){
+      const stateEl = document.getElementById('filterState');
+      const state = stateEl ? stateEl.value : 'all';
+      const q = getOrderSearchQuery();
+      const filtered = (_ordersCache || []).filter(o=>{
+        if(state !== 'all' && o.status !== state) return false;
+        return orderMatchesSearch(o, q);
+      });
+      renderOrdersList(filtered);
+    }
+
     async function load(){
       updateAuthUI();
       const token = getToken();
@@ -566,50 +645,20 @@
       showAuthorized();
       const clientHome = document.getElementById('clientHome');
       if(clientHome) clientHome.style.display = 'none';
-      const state = document.getElementById('filterState').value;
       const orderList = document.getElementById('orderList');
       if(orderList) orderList.innerHTML = '<div class="order-empty">Cargando...</div>';
       try{
-        const orders = await fetchOrders();
-        const filtered = orders.filter(o=> state==='all' ? true : o.status===state);
-        if(!orderList) return;
-        if(filtered.length===0){ orderList.innerHTML = '<div class="order-empty">No hay pedidos</div>'; return }
+        _ordersCache = await fetchOrders();
         document.getElementById('filterState').disabled = false;
         document.getElementById('reload').disabled = false;
-        const canDispatch = current && (current.role === 'negocio' || current.role === 'admin');
-        orderList.innerHTML = filtered.map(o=>{
-          const items = o.items.map(i=>`${esc(i.name)} ×${esc(i.qty)}`).join(' · ');
-          const showDispatch = canDispatch && o.status !== 'out_for_delivery' && o.status !== 'delivered' && o.status !== 'cancelled';
-          const showDeliver = canDispatch && o.status === 'out_for_delivery';
-          const showCancel = canDispatch && o.status !== 'cancelled' && o.status !== 'delivered';
-          const showMarkPaid = o.status!=='paid' && o.status!=='out_for_delivery' && o.status!=='delivered' && o.status!=='cancelled';
-          const payLabel = o.payment_method === 'transferencia' ? 'Transferencia' : (o.payment_method === 'efectivo' ? 'Efectivo' : '');
-          return `<article class="order-card">
-            <div class="order-card-top">
-              <div class="order-card-id">#${esc(o.id)}</div>
-              <div class="${orderStatusClass(o.status)} order-card-status">${esc(orderStatusLabel(o.status))}</div>
-            </div>
-            <div class="order-card-main">
-              <strong class="order-card-customer">${esc(o.customer_name || 'Anon')}</strong>
-              <div class="small order-card-meta">${esc(new Date(o.created_at).toLocaleString())}${payLabel ? ' · ' + esc(payLabel) : ''}</div>
-              <div class="order-card-items">${items}</div>
-              ${o.status==='cancelled'&&o.cancel_reason?`<div class="small order-card-note">${esc(o.cancel_reason)}</div>`:''}
-            </div>
-            <div class="order-card-total">${fmtMoney(o.total)}</div>
-            <div class="order-actions">
-              <button class="btn" type="button" onclick="view(${Number(o.id)})">Ver</button>
-              <button class="btn btn-ghost" type="button" onclick="sendOrderWA(${Number(o.id)})">Enviar WA</button>
-              ${showDispatch ? `<button class="btn btn-dispatch" type="button" onclick="dispatchOrder(${Number(o.id)})">Enviar a domicilio</button>` : ''}
-              ${showDeliver ? `<button class="btn btn-deliver" type="button" onclick="confirmDelivery(${Number(o.id)})">Confirmar entrega</button>` : ''}
-              ${showMarkPaid ? `<button class="btn" type="button" style="background:#059669;color:#fff;border-color:#059669" onclick="markPaid(${Number(o.id)})">Marcar pagado</button>` : ''}
-              ${showCancel ? `<button class="btn btn-cancel-order" type="button" onclick="openCancelOrder(${Number(o.id)})">Cancelar</button>` : ''}
-            </div>
-          </article>`;
-        }).join('');
+        const orderSearch = document.getElementById('orderSearch');
+        if(orderSearch) orderSearch.disabled = false;
+        applyOrdersFilter();
       }catch(err){
         showUnauthorized();
       }
     }
+
     async function view(id){
       const ov = document.getElementById('orderDetailOverlay');
       if(!ov) return;
@@ -861,7 +910,12 @@
     }
 
     document.getElementById('reload').addEventListener('click', load);
-    document.getElementById('filterState').addEventListener('change', load);
+    document.getElementById('filterState').addEventListener('change', applyOrdersFilter);
+    const orderSearchEl = document.getElementById('orderSearch');
+    if(orderSearchEl){
+      orderSearchEl.addEventListener('input', applyOrdersFilter);
+      orderSearchEl.addEventListener('search', applyOrdersFilter);
+    }
 
     // Login flow
     async function doLogin(){
@@ -2149,15 +2203,31 @@
               <div class="span-3"><button id="menuAdd" class="btn" type="button">Agregar</button></div>
             </div>
             <div id="menuMsg" class="small inline-msg" style="margin-top:8px;display:none"></div>
+            <div class="admin-toolbar" style="margin-top:12px">
+              <label class="admin-toolbar-field admin-search-field">Buscar producto
+                <input id="menuSearch" type="search" placeholder="Nombre, categoría, descripción..." />
+              </label>
+            </div>
             <div id="menuList" style="margin-top:12px">Cargando...</div>
           `;
           const menuListEl = document.getElementById('menuList');
-          async function loadMenuItems(){
-            try{
-              const res = await apiFetch('/api/menu/my'); if(!res.ok){ menuListEl.innerHTML='No autorizado'; return }
-              const items = await res.json();
-              if(items.length===0){ menuListEl.innerHTML = '<div class="order-empty">No hay productos</div>'; return }
-              menuListEl.innerHTML = `<div class="menu-admin-list">${items.map(i=>`<article class="menu-admin-card" data-id="${i.id}">
+          let _menuCache = [];
+          function getMenuSearchQuery(){
+            const el = document.getElementById('menuSearch');
+            return ((el && el.value) || '').trim().toLowerCase();
+          }
+          function menuMatchesSearch(i, q){
+            if(!q) return true;
+            const parts = [i.name, i.description, i.category, i.unit, String(i.price||''), i.available ? 'disponible' : 'no disponible'].join(' ').toLowerCase();
+            return parts.includes(q);
+          }
+          function renderMenuList(items){
+            const q = getMenuSearchQuery();
+            if(!items.length){
+              menuListEl.innerHTML = '<div class="order-empty">No hay productos' + (q ? ' con esa búsqueda' : '') + '</div>';
+              return;
+            }
+            menuListEl.innerHTML = `<div class="menu-admin-list">${items.map(i=>`<article class="menu-admin-card" data-id="${i.id}">
                 <div class="menu-admin-card-top">
                   <div>
                     <strong>${esc(i.name)}</strong>
@@ -2175,18 +2245,34 @@
                   <button class="btn btn-ghost" type="button" data-action="del">Eliminar</button>
                 </div>
               </article>`).join('')}</div>`;
-              menuListEl.querySelectorAll('button[data-action]').forEach(b=> b.addEventListener('click', async (e)=>{
-                const card = e.target.closest('[data-id]'); const id = card.getAttribute('data-id'); const action = e.target.getAttribute('data-action');
-                const item = items.find(x => String(x.id) === String(id));
-                if(action === 'del'){
-                  if(!confirm('Eliminar este producto?')) return; const r = await apiFetch('/api/menu/'+id,{ method:'DELETE' }); if(!r.ok){ alert('Error'); return } loadMenuItems();
-                } else if(action === 'edit' && item){
-                  showProductEditModal(item, cats, loadMenuItems);
-                }
-              }));
+            menuListEl.querySelectorAll('button[data-action]').forEach(b=> b.addEventListener('click', async (e)=>{
+              const card = e.target.closest('[data-id]'); const id = card.getAttribute('data-id'); const action = e.target.getAttribute('data-action');
+              const item = _menuCache.find(x => String(x.id) === String(id));
+              if(action === 'del'){
+                if(!confirm('Eliminar este producto?')) return; const r = await apiFetch('/api/menu/'+id,{ method:'DELETE' }); if(!r.ok){ alert('Error'); return } loadMenuItems();
+              } else if(action === 'edit' && item){
+                showProductEditModal(item, cats, loadMenuItems);
+              }
+            }));
+          }
+          function applyMenuFilter(){
+            const q = getMenuSearchQuery();
+            renderMenuList((_menuCache || []).filter(i => menuMatchesSearch(i, q)));
+          }
+          async function loadMenuItems(){
+            try{
+              const res = await apiFetch('/api/menu/my'); if(!res.ok){ menuListEl.innerHTML='No autorizado'; return }
+              _menuCache = await res.json();
+              if(!_menuCache.length){ menuListEl.innerHTML = '<div class="order-empty">No hay productos</div>'; return }
+              applyMenuFilter();
             }catch(err){ menuListEl.innerHTML='Error cargando catálogo'; }
           }
           loadMenuItems();
+          const menuSearchEl = document.getElementById('menuSearch');
+          if(menuSearchEl){
+            menuSearchEl.addEventListener('input', applyMenuFilter);
+            menuSearchEl.addEventListener('search', applyMenuFilter);
+          }
           document.getElementById('menuAdd').addEventListener('click', async ()=>{
             const name = document.getElementById('menuName').value.trim();
             const price = Number(document.getElementById('menuPrice').value||0);
