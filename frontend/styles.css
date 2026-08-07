@@ -471,6 +471,14 @@ body.sidebar-open{overflow:hidden}
 .biz-title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .biz-title-row h1{margin:0;color:var(--accent);font-family:var(--font-display);letter-spacing:-0.03em}
 .biz-address{color:var(--muted);margin-top:8px}
+.biz-phone,.biz-email{
+  margin-top:6px;color:var(--muted);line-height:1.35;
+  word-break:break-word;overflow-wrap:anywhere;
+}
+.biz-phone a,.biz-email a{
+  color:var(--accent);font-weight:700;text-decoration:none;
+}
+.biz-phone a:hover,.biz-email a:hover{text-decoration:underline}
 .edit-media-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
 .edit-media-block{
   padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);
@@ -524,10 +532,7 @@ body.sidebar-open{overflow:hidden}
   border-bottom:1px solid transparent;
 }
 .market-topbar-actions{
-  display:flex;align-items:center;gap:10px;min-width:0;flex:1;justify-content:flex-end;
-}
-.market-contact{
-  max-width:min(42vw,280px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  display:flex;align-items:center;gap:10px;min-width:0;flex:0 0 auto;justify-content:flex-end;
 }
 .market-layout{
   display:grid;grid-template-columns:1fr;gap:14px;align-items:start;
@@ -644,7 +649,6 @@ html[data-theme="dark"] .market-cat.is-active{color:#04140c}
   .menu-form-grid{grid-template-columns:1fr 1fr}
   .menu-form-grid .span-2,.menu-form-grid .span-3{grid-column:1 / -1}
   .market-cart-modal{width:100%}
-  .market-contact{display:none}
 }
 @media (max-width:520px){
   .market-grid{grid-template-columns:1fr}
