@@ -86,7 +86,8 @@ function mapMongoToDb(users, menus, orders, inventories, cash) {
       dispatched_at: o.dispatched_at || null,
       delivered_at: o.delivered_at || null,
       cancelled_at: o.cancelled_at || null,
-      cancel_reason: o.cancel_reason || ''
+      cancel_reason: o.cancel_reason || '',
+      payment_method: o.payment_method || null
     })),
     users: (users || []).map(u => ({
       id: u.legacyId || 0,
@@ -261,7 +262,8 @@ async function writeDB(current) {
           dispatched_at: o.dispatched_at ? new Date(o.dispatched_at) : null,
           delivered_at: o.delivered_at ? new Date(o.delivered_at) : null,
           cancelled_at: o.cancelled_at ? new Date(o.cancelled_at) : null,
-          cancel_reason: o.cancel_reason || ''
+          cancel_reason: o.cancel_reason || '',
+          payment_method: o.payment_method || null
         }
       },
       { upsert: true }
@@ -1377,8 +1379,9 @@ app.get('/b/:slug', (req, res) => {
 });
 
 app.post('/api/orders', async (req, res) => {
-  const { customer_name, customer_phone, items, ownerSlug } = req.body || {};
+  const { customer_name, customer_phone, items, ownerSlug, payment_method } = req.body || {};
   if (!items || !Array.isArray(items) || !items.length) return res.status(400).json({ error: 'items array required' });
+  const payMethod = ['efectivo', 'transferencia'].includes(payment_method) ? payment_method : 'efectivo';
   db = readDB();
 
   let ownerId = null;
@@ -1428,6 +1431,7 @@ app.post('/api/orders', async (req, res) => {
     ownerId,
     customer_name: String(customer_name || 'Anon').slice(0, 80),
     customer_phone: customer_phone ? String(customer_phone).slice(0, 30) : null,
+    payment_method: payMethod,
     items: pricedItems,
     total,
     status: 'pending',

@@ -85,6 +85,13 @@
           <span>Tu WhatsApp (opcional)</span>
           <input id="custPhone" placeholder="Ej. 3001234567" inputmode="tel" autocomplete="tel" />
         </label>
+        <label class="login-field" for="payMethod" style="margin-top:10px">
+          <span>Método de pago</span>
+          <select id="payMethod">
+            <option value="efectivo">Efectivo</option>
+            <option value="transferencia">Transferencia</option>
+          </select>
+        </label>
       </div>
       <div class="market-cart-footer">
         <div id="cartTotal" class="market-cart-total"></div>
@@ -363,11 +370,13 @@
 
     function buildStoreMessage(order, customer, customerPhone, items){
       const bizName = (BUSINESS && BUSINESS.name) || slug || 'tienda';
+      const payLabel = order.payment_method === 'transferencia' ? 'Transferencia' : (order.payment_method === 'efectivo' ? 'Efectivo' : '');
       return [
         '🛒 *Nuevo pedido — ' + bizName + '*',
         '',
         'Cliente: ' + customer,
         customerPhone ? ('WhatsApp cliente: ' + customerPhone) : null,
+        payLabel ? ('Método de pago: ' + payLabel) : null,
         '',
         '*Detalle:*',
         ...items.map(c => '• ' + c.name + ' x' + c.qty + ' — ' + fmtMoney(c.price * c.qty)),
@@ -384,6 +393,7 @@
       msgEl.style.display='none';
       const customer = (document.getElementById('custName').value || '').trim() || 'Cliente';
       const customerPhone = (document.getElementById('custPhone').value || '').trim();
+      const paymentMethod = (document.getElementById('payMethod') || {}).value || 'efectivo';
       if(!CART.length){
         msgEl.textContent = 'Agrega productos al carrito primero';
         msgEl.className='small inline-msg error'; msgEl.style.display='block';
@@ -404,7 +414,13 @@
         const res = await fetch('/api/orders', {
           method: 'POST',
           headers: {'content-type':'application/json'},
-          body: JSON.stringify({ customer_name: customer, customer_phone: customerPhone || null, items, ownerSlug: slug })
+          body: JSON.stringify({
+            customer_name: customer,
+            customer_phone: customerPhone || null,
+            payment_method: paymentMethod,
+            items,
+            ownerSlug: slug
+          })
         });
         if(!res.ok){
           const t = await res.json().catch(()=>({}));
@@ -417,6 +433,7 @@
         CART = [];
         document.getElementById('custName').value = '';
         document.getElementById('custPhone').value = '';
+        const payEl = document.getElementById('payMethod'); if(payEl) payEl.value = 'efectivo';
         await loadMenu();
       }catch(e){
         msgEl.textContent = 'No se pudo enviar: ' + e.message;

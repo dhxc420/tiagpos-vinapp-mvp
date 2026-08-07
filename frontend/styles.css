@@ -148,12 +148,13 @@ html[data-theme="dark"] .btn-google{background:#151c19;color:var(--ink);border-c
 .login-credentials{display:flex;flex-direction:column;gap:12px;width:100%}
 .login-field{display:flex;flex-direction:column;gap:6px;width:100%}
 .login-field span{font-size:.78rem;font-weight:750;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
-.login-field input{
+.login-field input,.login-field select{
   width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);
   background:var(--bg);color:var(--ink);font-size:1rem;font-weight:600;
   transition: border-color .18s ease, box-shadow .18s ease;
 }
-.login-field input:focus{
+.login-field select{appearance:auto;cursor:pointer}
+.login-field input:focus,.login-field select:focus{
   outline:none;border-color:var(--accent);
   box-shadow:0 0 0 4px var(--accent-soft);
 }

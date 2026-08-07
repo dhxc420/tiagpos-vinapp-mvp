@@ -329,6 +329,7 @@
       <div class="order-detail-body">
         <div class="order-detail-row"><span>Cliente</span><strong id="orderDetailCustomer"></strong></div>
         <div class="order-detail-row" id="orderDetailPhoneRow" style="display:none"><span>Teléfono</span><strong id="orderDetailPhone"></strong></div>
+        <div class="order-detail-row" id="orderDetailPayRow" style="display:none"><span>Método de pago</span><strong id="orderDetailPayMethod"></strong></div>
         <div class="order-detail-items-wrap">
           <div class="small" style="font-weight:750;margin-bottom:8px;color:var(--muted)">Items</div>
           <ul id="orderDetailItems" class="order-detail-items"></ul>
@@ -588,7 +589,7 @@
           const showCancel = canDispatch && o.status !== 'cancelled' && o.status !== 'delivered';
           return `<tr>
             <td>#${esc(o.id)}</td>
-            <td>${esc(o.customer_name || 'Anon')}<div class="small">${esc(new Date(o.created_at).toLocaleString())}</div></td>
+            <td>${esc(o.customer_name || 'Anon')}<div class="small">${esc(new Date(o.created_at).toLocaleString())}${o.payment_method?` · ${esc(o.payment_method === 'transferencia' ? 'Transferencia' : 'Efectivo')}`:''}</div></td>
             <td>${items}</td>
             <td>${fmtMoney(o.total)}</td>
             <td class="${orderStatusClass(o.status)}">${esc(orderStatusLabel(o.status))}${o.status==='cancelled'&&o.cancel_reason?`<div class="small">${esc(o.cancel_reason)}</div>`:''}</td>
@@ -625,6 +626,7 @@
       document.getElementById('orderDetailCancel').style.display = 'none';
       document.getElementById('orderDetailProofLink').style.display = 'none';
       document.getElementById('orderDetailPhoneRow').style.display = 'none';
+      document.getElementById('orderDetailPayRow').style.display = 'none';
       const proofInput = document.getElementById('proof_input');
       if(proofInput) proofInput.value = '';
       ov.style.display = 'flex';
@@ -659,6 +661,15 @@
         phoneRow.style.display = 'flex';
       } else {
         phoneRow.style.display = 'none';
+      }
+
+      const payRow = document.getElementById('orderDetailPayRow');
+      const payEl = document.getElementById('orderDetailPayMethod');
+      if(o.payment_method){
+        payEl.textContent = o.payment_method === 'transferencia' ? 'Transferencia' : (o.payment_method === 'efectivo' ? 'Efectivo' : o.payment_method);
+        payRow.style.display = 'flex';
+      } else {
+        payRow.style.display = 'none';
       }
 
       const statusEl = document.getElementById('orderDetailStatus');

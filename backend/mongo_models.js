@@ -46,7 +46,8 @@ const orderSchema = new mongoose.Schema({
   dispatched_at: Date,
   delivered_at: Date,
   cancelled_at: Date,
-  cancel_reason: String
+  cancel_reason: String,
+  payment_method: String
 }, { timestamps: true });
 
 const invSchema = new mongoose.Schema({
