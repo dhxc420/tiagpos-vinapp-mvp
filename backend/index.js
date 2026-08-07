@@ -1604,8 +1604,30 @@ app.post('/api/orders/:id/dispatch', requireNegocio, async (req, res) => {
   if (order.status === 'cancelled') {
     return res.status(400).json({ error: 'No se puede despachar un pedido cancelado' });
   }
+  if (order.status === 'delivered') {
+    return res.status(400).json({ error: 'El pedido ya fue entregado' });
+  }
   db.orders[orderIdx].status = 'out_for_delivery';
   db.orders[orderIdx].dispatched_at = new Date().toISOString();
+  await writeDB(db);
+  const { proof_token, ...safe } = db.orders[orderIdx];
+  res.json(safe);
+});
+
+app.post('/api/orders/:id/deliver', requireNegocio, async (req, res) => {
+  db = readDB();
+  const orderIdx = db.orders.findIndex(o => o.id === Number(req.params.id) && o.ownerId === req.user.id);
+  if (orderIdx === -1) return res.status(404).json({ error: 'Order not found' });
+  const order = db.orders[orderIdx];
+  if (order.status === 'cancelled') {
+    return res.status(400).json({ error: 'No se puede entregar un pedido cancelado' });
+  }
+  if (order.status !== 'out_for_delivery' && order.status !== 'paid') {
+    return res.status(400).json({ error: 'El pedido debe estar en domicilio (o pagado) para confirmar la entrega' });
+  }
+  db.orders[orderIdx].status = 'delivered';
+  db.orders[orderIdx].delivered_at = new Date().toISOString();
+  // If it was never marked paid (cash on delivery), keep delivered as final ops state
   await writeDB(db);
   const { proof_token, ...safe } = db.orders[orderIdx];
   res.json(safe);

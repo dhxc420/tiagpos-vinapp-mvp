@@ -151,6 +151,7 @@
                 <option value="pending">Pendientes</option>
                 <option value="paid">Pagados</option>
                 <option value="out_for_delivery">En domicilio</option>
+                <option value="delivered">Entregados</option>
               </select>
             </label>
             <button id="reload" class="btn btn-ghost" style="margin-left:12px">Refrescar</button>
@@ -344,6 +345,7 @@
       <div class="modal-actions">
         <button id="orderDetailClose" class="btn btn-ghost" type="button">Cerrar</button>
         <button id="orderDetailDispatch" class="btn" type="button" style="display:none">Confirmar y enviar a domicilio</button>
+        <button id="orderDetailDeliver" class="btn btn-deliver" type="button" style="display:none">Confirmar entrega a domicilio</button>
         <button id="orderDetailConfirm" class="btn btn-primary" type="button" style="display:none">Confirmar pago</button>
       </div>
     </div>
@@ -456,12 +458,14 @@
       if(status === 'paid') return 'pagado';
       if(status === 'pending') return 'pendiente';
       if(status === 'out_for_delivery') return 'en domicilio';
+      if(status === 'delivered') return 'entregado';
       if(status === 'cancelled') return 'cancelado';
       return status || '';
     }
 
     function orderStatusClass(status){
       if(status === 'paid') return 'status-paid';
+      if(status === 'delivered') return 'status-delivered';
       if(status === 'out_for_delivery') return 'status-delivery';
       if(status === 'pending') return 'status-pending';
       return '';
@@ -547,7 +551,8 @@
         const canDispatch = current && (current.role === 'negocio' || current.role === 'admin');
         rows.innerHTML = filtered.map(o=>{
           const items = o.items.map(i=>`${esc(i.name)} x${esc(i.qty)}`).join(', ');
-          const showDispatch = canDispatch && o.status !== 'out_for_delivery' && o.status !== 'cancelled';
+          const showDispatch = canDispatch && o.status !== 'out_for_delivery' && o.status !== 'delivered' && o.status !== 'cancelled';
+          const showDeliver = canDispatch && o.status === 'out_for_delivery';
           return `<tr>
             <td>#${esc(o.id)}</td>
             <td>${esc(o.customer_name || 'Anon')}<div class="small">${esc(new Date(o.created_at).toLocaleString())}</div></td>
@@ -558,7 +563,8 @@
               <button class="btn" onclick="view(${Number(o.id)})">Ver</button>
               <button class="btn btn-ghost" onclick="sendOrderWA(${Number(o.id)})">Enviar WA</button>
               ${showDispatch ? `<button class="btn btn-dispatch" onclick="dispatchOrder(${Number(o.id)})">Confirmar y enviar a domicilio</button>` : ''}
-              ${o.status!=='paid' && o.status!=='out_for_delivery' ? `<button class="btn" style="background:#059669" onclick="markPaid(${Number(o.id)})">Marcar como pagado</button>` : ''}
+              ${showDeliver ? `<button class="btn btn-deliver" onclick="confirmDelivery(${Number(o.id)})">Confirmar entrega a domicilio</button>` : ''}
+              ${o.status!=='paid' && o.status!=='out_for_delivery' && o.status!=='delivered' ? `<button class="btn" style="background:#059669" onclick="markPaid(${Number(o.id)})">Marcar como pagado</button>` : ''}
             </td>
           </tr>`
         }).join('');
@@ -581,6 +587,7 @@
       document.getElementById('orderDetailPayBox').style.display = 'none';
       document.getElementById('orderDetailConfirm').style.display = 'none';
       document.getElementById('orderDetailDispatch').style.display = 'none';
+      document.getElementById('orderDetailDeliver').style.display = 'none';
       document.getElementById('orderDetailProofLink').style.display = 'none';
       document.getElementById('orderDetailPhoneRow').style.display = 'none';
       const proofInput = document.getElementById('proof_input');
@@ -622,8 +629,9 @@
       const statusEl = document.getElementById('orderDetailStatus');
       const paid = o.status === 'paid';
       const delivering = o.status === 'out_for_delivery';
+      const delivered = o.status === 'delivered';
       statusEl.textContent = orderStatusLabel(o.status);
-      statusEl.className = 'order-detail-badge ' + (paid ? 'is-paid' : (delivering ? 'is-delivery' : 'is-pending'));
+      statusEl.className = 'order-detail-badge ' + (delivered ? 'is-delivered' : (paid ? 'is-paid' : (delivering ? 'is-delivery' : 'is-pending')));
 
       document.getElementById('orderDetailItems').innerHTML = (o.items || []).map(i=>
         `<li><span>${esc(i.name)} <em>×${esc(i.qty)}</em></span><strong>${fmtMoney(i.price * (i.qty || 1))}</strong></li>`
@@ -641,10 +649,14 @@
       const payBox = document.getElementById('orderDetailPayBox');
       const confirmBtn = document.getElementById('orderDetailConfirm');
       const dispatchBtn = document.getElementById('orderDetailDispatch');
+      const deliverBtn = document.getElementById('orderDetailDeliver');
       const user = getUser();
-      const canDispatch = user && (user.role === 'negocio' || user.role === 'admin') && o.status !== 'out_for_delivery' && o.status !== 'cancelled';
+      const isStaff = user && (user.role === 'negocio' || user.role === 'admin');
+      const canDispatch = isStaff && o.status !== 'out_for_delivery' && o.status !== 'delivered' && o.status !== 'cancelled';
+      const canDeliver = isStaff && o.status === 'out_for_delivery';
       if(dispatchBtn) dispatchBtn.style.display = canDispatch ? 'inline-flex' : 'none';
-      if(!paid && !delivering){
+      if(deliverBtn) deliverBtn.style.display = canDeliver ? 'inline-flex' : 'none';
+      if(!paid && !delivering && !delivered){
         payBox.style.display = 'block';
         confirmBtn.style.display = 'inline-flex';
       } else {
@@ -701,6 +713,30 @@
         if(detailOpen && detailOpen.style.display !== 'none') await view(id);
       }catch(e){
         alert(e.message || 'Error al despachar');
+      }
+    }
+
+    async function confirmDelivery(id){
+      if(!confirm('¿Confirmar que el pedido #'+id+' ya fue entregado a domicilio?')) return;
+      try{
+        const res = await apiFetch(`/api/orders/${id}/deliver`, { method: 'POST', headers:{'content-type':'application/json'}, body: '{}' });
+        if(res.status === 401 || res.status === 403){ setToken(null); setUser(null); showUnauthorized(); alert('No autorizado'); return }
+        const data = await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(data.error || 'No se pudo confirmar la entrega');
+        await load();
+        try{
+          await openOrderWhatsApp(data, [
+            '',
+            '✅ Entrega confirmada.',
+            'Tu pedido ya fue entregado a domicilio. ¡Gracias!'
+          ]);
+        }catch(waErr){
+          alert('Entrega confirmada, pero no se pudo abrir WhatsApp: ' + waErr.message);
+        }
+        const detailOpen = document.getElementById('orderDetailOverlay');
+        if(detailOpen && detailOpen.style.display !== 'none') await view(id);
+      }catch(e){
+        alert(e.message || 'Error al confirmar entrega');
       }
     }
 
@@ -1247,6 +1283,11 @@
       e.preventDefault();
       const id = Number(document.getElementById('orderDetailId').value);
       if(id) dispatchOrder(id);
+    });
+    document.getElementById('orderDetailDeliver').addEventListener('click', (e)=>{
+      e.preventDefault();
+      const id = Number(document.getElementById('orderDetailId').value);
+      if(id) confirmDelivery(id);
     });
     document.getElementById('orderDetailConfirm').addEventListener('click', (e)=>{
       e.preventDefault();
