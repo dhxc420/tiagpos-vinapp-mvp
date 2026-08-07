@@ -82,7 +82,11 @@ function mapMongoToDb(users, menus, orders, inventories, cash) {
       proof_token: o.proof_token || null,
       created_at: o.created_at,
       paid_at: o.paid_at,
-      proof_submitted_at: o.proof_submitted_at || null
+      proof_submitted_at: o.proof_submitted_at || null,
+      dispatched_at: o.dispatched_at || null,
+      delivered_at: o.delivered_at || null,
+      cancelled_at: o.cancelled_at || null,
+      cancel_reason: o.cancel_reason || ''
     })),
     users: (users || []).map(u => ({
       id: u.legacyId || 0,
@@ -253,7 +257,11 @@ async function writeDB(current) {
           proof_token: o.proof_token || null,
           created_at: o.created_at ? new Date(o.created_at) : new Date(),
           paid_at: o.paid_at ? new Date(o.paid_at) : null,
-          proof_submitted_at: o.proof_submitted_at ? new Date(o.proof_submitted_at) : null
+          proof_submitted_at: o.proof_submitted_at ? new Date(o.proof_submitted_at) : null,
+          dispatched_at: o.dispatched_at ? new Date(o.dispatched_at) : null,
+          delivered_at: o.delivered_at ? new Date(o.delivered_at) : null,
+          cancelled_at: o.cancelled_at ? new Date(o.cancelled_at) : null,
+          cancel_reason: o.cancel_reason || ''
         }
       },
       { upsert: true }
@@ -372,7 +380,52 @@ async function ensureMercaMono() {
   const PASS = process.env.MERCA_PASS || 'Merca2026!';
   db = readDB();
   const { salt, hash } = hashPassword(PASS);
-  const categories = ['Carnicería', 'Legumbrería', 'Comestibles'];
+  const categories = [
+    'Carnicería',
+    'Legumbrería',
+    'Comestibles',
+    'Lácteos',
+    'Bebidas',
+    'Panadería',
+    'Aseo'
+  ];
+  const seedProducts = [
+    { name: 'Carne de res molida', description: 'Paquete fresco 500g', price: 12500, stock: 40, category: 'Carnicería', unit: 'paq' },
+    { name: 'Pollo entero', description: 'Pollo fresco aprox 1.2kg', price: 18000, stock: 25, category: 'Carnicería', unit: 'und' },
+    { name: 'Costilla de cerdo', description: 'Por kilo', price: 16000, stock: 30, category: 'Carnicería', unit: 'kg' },
+    { name: 'Pechuga de pollo', description: 'Filete fresco por kilo', price: 14500, stock: 35, category: 'Carnicería', unit: 'kg' },
+    { name: 'Carne de cerdo para guiso', description: 'Cortada en trozos', price: 13200, stock: 28, category: 'Carnicería', unit: 'kg' },
+    { name: 'Chorizo antioqueño', description: 'Paquete x4', price: 8900, stock: 40, category: 'Carnicería', unit: 'paq' },
+    { name: 'Tomate chonto', description: 'Fresco de la huerta', price: 3500, stock: 80, category: 'Legumbrería', unit: 'lb' },
+    { name: 'Cebolla cabezona', description: 'Blanca', price: 2800, stock: 70, category: 'Legumbrería', unit: 'lb' },
+    { name: 'Plátano verde', description: 'Unidad', price: 800, stock: 120, category: 'Legumbrería', unit: 'und' },
+    { name: 'Papa criolla', description: 'Libra', price: 3200, stock: 90, category: 'Legumbrería', unit: 'lb' },
+    { name: 'Zanahoria', description: 'Fresco', price: 2500, stock: 75, category: 'Legumbrería', unit: 'lb' },
+    { name: 'Aguacate hass', description: 'Unidad madura', price: 3500, stock: 50, category: 'Legumbrería', unit: 'und' },
+    { name: 'Limón tahití', description: 'Libra', price: 2200, stock: 60, category: 'Legumbrería', unit: 'lb' },
+    { name: 'Arroz 1kg', description: 'Arroz blanco', price: 4500, stock: 60, category: 'Comestibles', unit: 'paq' },
+    { name: 'Aceite 1L', description: 'Aceite vegetal', price: 9800, stock: 45, category: 'Comestibles', unit: 'und' },
+    { name: 'Huevos x12', description: 'Cartón de 12', price: 7200, stock: 50, category: 'Comestibles', unit: 'cartón' },
+    { name: 'Pasta spaghetti 500g', description: 'Paquete', price: 3900, stock: 55, category: 'Comestibles', unit: 'paq' },
+    { name: 'Frijol cargamanto 500g', description: 'Seco', price: 5200, stock: 40, category: 'Comestibles', unit: 'paq' },
+    { name: 'Azúcar 1kg', description: 'Blanca', price: 4100, stock: 48, category: 'Comestibles', unit: 'paq' },
+    { name: 'Sal refinada 1kg', description: 'Paquete', price: 1800, stock: 70, category: 'Comestibles', unit: 'paq' },
+    { name: 'Leche entera 1L', description: 'Bolsa o caja', price: 4200, stock: 55, category: 'Lácteos', unit: 'und' },
+    { name: 'Queso campesino', description: 'Bloque aprox 500g', price: 9800, stock: 30, category: 'Lácteos', unit: 'und' },
+    { name: 'Yogurt natural', description: 'Vaso 150g', price: 2200, stock: 60, category: 'Lácteos', unit: 'und' },
+    { name: 'Mantequilla 250g', description: 'Con sal', price: 6500, stock: 35, category: 'Lácteos', unit: 'und' },
+    { name: 'Agua 600ml', description: 'Botella', price: 1500, stock: 100, category: 'Bebidas', unit: 'und' },
+    { name: 'Gaseosa 1.5L', description: 'Surtida', price: 4500, stock: 48, category: 'Bebidas', unit: 'und' },
+    { name: 'Jugo hit 1L', description: 'Sabor surtido', price: 3800, stock: 40, category: 'Bebidas', unit: 'und' },
+    { name: 'Café molido 250g', description: 'Tostado', price: 8900, stock: 32, category: 'Bebidas', unit: 'paq' },
+    { name: 'Pan tajado', description: 'Bolsa familiar', price: 5200, stock: 28, category: 'Panadería', unit: 'und' },
+    { name: 'Arepa de maíz', description: 'Paquete x5', price: 3500, stock: 40, category: 'Panadería', unit: 'paq' },
+    { name: 'Galletas soda', description: 'Paquete', price: 2800, stock: 45, category: 'Panadería', unit: 'paq' },
+    { name: 'Jabón de barra', description: 'Aseo general', price: 3200, stock: 50, category: 'Aseo', unit: 'und' },
+    { name: 'Detergente 500g', description: 'En polvo', price: 5800, stock: 36, category: 'Aseo', unit: 'paq' },
+    { name: 'Papel higiénico x4', description: 'Paquete', price: 7900, stock: 42, category: 'Aseo', unit: 'paq' },
+    { name: 'Esponja multiusos', description: 'Unidad', price: 1800, stock: 55, category: 'Aseo', unit: 'und' }
+  ];
   let user = db.users.find(u => u.username === USER || (u.business && u.business.slug === 'mercamono'));
   let changed = false;
   if (!user) {
@@ -383,7 +436,7 @@ async function ensureMercaMono() {
       hash,
       role: 'negocio',
       business: {
-        name: 'Merca Mono',
+        name: 'merca mono limonar 2',
         email: 'mercamono@yopmail.com',
         phone: '3001234567',
         address: 'Barrio Centro',
@@ -399,47 +452,42 @@ async function ensureMercaMono() {
   } else {
     user.username = USER;
     user.business = user.business || {};
-    if (user.business.name !== 'Merca Mono') { user.business.name = user.business.name || 'Merca Mono'; changed = true; }
+    if (!user.business.name) { user.business.name = 'merca mono limonar 2'; changed = true; }
     if (user.business.store_kind !== 'market') { user.business.store_kind = 'market'; changed = true; }
-    if (!Array.isArray(user.business.categories) || user.business.categories.join() !== categories.join()) {
-      user.business.categories = categories; changed = true;
+    const currentCats = Array.isArray(user.business.categories) ? user.business.categories.slice() : [];
+    const mergedCats = categories.slice();
+    currentCats.forEach(c => { if (c && !mergedCats.includes(c)) mergedCats.push(c); });
+    if (mergedCats.join() !== currentCats.join()) {
+      user.business.categories = mergedCats;
+      changed = true;
     }
     if (user.business.slug !== 'mercamono') { user.business.slug = 'mercamono'; changed = true; }
     if (typeof user.business.is_open === 'undefined') { user.business.is_open = true; changed = true; }
   }
 
   const owned = db.menus.filter(m => m.ownerId === user.id);
+  const ownedNames = new Set(owned.map(m => String(m.name || '').trim().toLowerCase()));
   const seededMenus = [];
-  if (!owned.length) {
-    const seedProducts = [
-      { name: 'Carne de res molida', description: 'Paquete fresco 500g', price: 12500, stock: 40, category: 'Carnicería', unit: 'paq' },
-      { name: 'Pollo entero', description: 'Pollo fresco aprox 1.2kg', price: 18000, stock: 25, category: 'Carnicería', unit: 'und' },
-      { name: 'Costilla de cerdo', description: 'Por kilo', price: 16000, stock: 30, category: 'Carnicería', unit: 'kg' },
-      { name: 'Tomate chonto', description: 'Fresco de la huerta', price: 3500, stock: 80, category: 'Legumbrería', unit: 'lb' },
-      { name: 'Cebolla cabezona', description: 'Blanca', price: 2800, stock: 70, category: 'Legumbrería', unit: 'lb' },
-      { name: 'Plátano verde', description: 'Unidad', price: 800, stock: 120, category: 'Legumbrería', unit: 'und' },
-      { name: 'Arroz 1kg', description: 'Arroz blanco', price: 4500, stock: 60, category: 'Comestibles', unit: 'paq' },
-      { name: 'Aceite 1L', description: 'Aceite vegetal', price: 9800, stock: 45, category: 'Comestibles', unit: 'und' },
-      { name: 'Huevos x12', description: 'Cartón de 12', price: 7200, stock: 50, category: 'Comestibles', unit: 'cartón' }
-    ];
-    for (const p of seedProducts) {
-      const row = {
-        id: ++db.lastMenuId,
-        ownerId: user.id,
-        name: p.name,
-        description: p.description,
-        price: p.price,
-        stock: p.stock,
-        category: p.category,
-        unit: p.unit,
-        available: true
-      };
-      db.menus.push(row);
-      seededMenus.push(row);
-    }
+  for (const p of seedProducts) {
+    const key = String(p.name).trim().toLowerCase();
+    if (ownedNames.has(key)) continue;
+    const row = {
+      id: ++db.lastMenuId,
+      ownerId: user.id,
+      name: p.name,
+      description: p.description,
+      price: p.price,
+      stock: p.stock,
+      category: p.category,
+      unit: p.unit,
+      available: true
+    };
+    db.menus.push(row);
+    seededMenus.push(row);
+    ownedNames.add(key);
     changed = true;
-    console.log('Merca Mono catalog seeded');
   }
+  if (seededMenus.length) console.log('Merca Mono catalog +' + seededMenus.length + ' products');
 
   if (!changed) return;
 
@@ -1628,6 +1676,37 @@ app.post('/api/orders/:id/deliver', requireNegocio, async (req, res) => {
   db.orders[orderIdx].status = 'delivered';
   db.orders[orderIdx].delivered_at = new Date().toISOString();
   // If it was never marked paid (cash on delivery), keep delivered as final ops state
+  await writeDB(db);
+  const { proof_token, ...safe } = db.orders[orderIdx];
+  res.json(safe);
+});
+
+app.post('/api/orders/:id/cancel', requireNegocio, async (req, res) => {
+  db = readDB();
+  const orderIdx = db.orders.findIndex(o => o.id === Number(req.params.id) && o.ownerId === req.user.id);
+  if (orderIdx === -1) return res.status(404).json({ error: 'Order not found' });
+  const order = db.orders[orderIdx];
+  if (order.status === 'cancelled') {
+    return res.status(400).json({ error: 'El pedido ya está cancelado' });
+  }
+  if (order.status === 'delivered') {
+    return res.status(400).json({ error: 'No se puede cancelar un pedido ya entregado' });
+  }
+  const reason = String((req.body && req.body.reason) || '').trim().slice(0, 500);
+  if (!reason) return res.status(400).json({ error: 'Indica el motivo de cancelación' });
+
+  // Restore stock for tracked products
+  for (const line of order.items || []) {
+    const idx = db.menus.findIndex(m => m.id === line.id && m.ownerId === req.user.id);
+    if (idx !== -1 && typeof db.menus[idx].stock === 'number') {
+      db.menus[idx].stock = Math.max(0, Number(db.menus[idx].stock) + Math.max(0, Number(line.qty || 0)));
+      if (db.menus[idx].stock > 0) db.menus[idx].available = true;
+    }
+  }
+
+  db.orders[orderIdx].status = 'cancelled';
+  db.orders[orderIdx].cancel_reason = reason;
+  db.orders[orderIdx].cancelled_at = new Date().toISOString();
   await writeDB(db);
   const { proof_token, ...safe } = db.orders[orderIdx];
   res.json(safe);
