@@ -121,7 +121,7 @@
             <li id="navStatus" style="display:none"><a href="#" data-section="status" class="side-link">🩺 Estado de servicios</a></li>
             <li><a href="#" data-section="orders" class="side-link">🧾 Pedidos</a></li>
             <li><a href="#" data-section="inventory" class="side-link">📦 Inventario</a></li>
-            <li><a href="#" data-section="menu" class="side-link">🍽️ Menú</a></li>
+            <li><a href="#" data-section="menu" class="side-link">🍽️ Catálogo</a></li>
             <li><a href="#" data-section="cash" class="side-link">💵 Caja</a></li>
             <li><a href="#" data-section="reports" class="side-link">📊 Reportes</a></li>
             <li><a href="#" data-section="profile" class="side-link">⚙️ Perfil / Negocio</a></li>
@@ -1853,7 +1853,7 @@
                     <div class="small">Confirmadas</div>
                   </div>
                   <div class="dash-card">
-                    <div class="dash-label">Menú</div>
+                    <div class="dash-label">Catálogo</div>
                     <div class="dash-value">${menus.length}</div>
                     <div class="small">${menus.filter(m=>m.available!==false).length} disponibles</div>
                   </div>
@@ -1930,7 +1930,7 @@
                   <th style="text-align:left;padding:8px">Usuario</th>
                   <th style="text-align:left;padding:8px">Negocio</th>
                   <th style="text-align:left;padding:8px">Teléfono</th>
-                  <th style="text-align:left;padding:8px">Menú</th>
+                  <th style="text-align:left;padding:8px">Catálogo</th>
                   <th style="text-align:left;padding:8px">Pedidos</th>
                   <th style="text-align:left;padding:8px">Público</th>
                 </tr></thead>
@@ -2119,8 +2119,8 @@
             ? user.business.categories
             : (isMarket ? ['Carnicería','Legumbrería','Comestibles'] : ['']);
           detail.innerHTML = `
-            <h3>${isMarket ? 'Productos' : 'Menú'}</h3>
-            <div class="small">${isMarket ? 'Catálogo del mini súper por categoría, stock y costo' : 'Gestiona los platos de tu negocio'}</div>
+            <h3>Catálogo</h3>
+            <div class="small">${isMarket ? 'Catálogo del mini súper por categoría, stock y costo' : 'Gestiona los productos de tu negocio'}</div>
             <div class="menu-form-grid">
               <label class="span-2">Nombre
                 <input id="menuName" placeholder="Nombre del producto" />
@@ -2184,7 +2184,7 @@
                   showProductEditModal(item, cats, loadMenuItems);
                 }
               }));
-            }catch(err){ menuListEl.innerHTML='Error cargando menú'; }
+            }catch(err){ menuListEl.innerHTML='Error cargando catálogo'; }
           }
           loadMenuItems();
           document.getElementById('menuAdd').addEventListener('click', async ()=>{
