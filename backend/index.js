@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const { sendMail, welcomeEmail, confirmEmail } = require('./mail');
+const { sendMail, welcomeEmail, confirmEmail, mailConfig } = require('./mail');
 
 const app = express();
 app.set('trust proxy', true);
@@ -950,6 +950,13 @@ app.get('/api/admin/status', requireAdmin, async (req, res) => {
 
   pushCheck('api', 'API Express', true, `Respuesta en ${Date.now() - started} ms`);
   pushCheck('auth', 'JWT / sesiones', !!process.env.JWT_SECRET, process.env.JWT_SECRET ? 'JWT_SECRET configurado' : 'JWT_SECRET ausente');
+  const mail = mailConfig();
+  pushCheck('mail', 'Correo (SMTP/Resend)', mail.configured,
+    mail.configured
+      ? `Proveedor: ${mail.provider}${mail.from ? '' : ' · falta MAIL_FROM'}`
+      : 'Sin RESEND_API_KEY ni SMTP_* · los códigos se muestran en pantalla');
+  pushCheck('google', 'Google Sign-In', !!process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_ID ? 'GOOGLE_CLIENT_ID configurado' : 'GOOGLE_CLIENT_ID ausente');
   pushCheck('mongo', 'Base de datos MongoDB', mongo.ok || (!mongo.configured && !usingMongo),
     mongo.configured
       ? (mongo.ok ? `Conectado · ping ${mongo.ping_ms} ms` : (mongo.error || mongo.readyLabel))
@@ -1005,9 +1012,40 @@ app.get('/api/admin/status', requireAdmin, async (req, res) => {
       JWT_SECRET: !!process.env.JWT_SECRET,
       MONGO_URI: !!(process.env.MONGO_URI || process.env.MONGOURL || process.env.MONGOURL_SHORT),
       CHECKOUT_BASE: !!process.env.CHECKOUT_BASE,
-      WHATSAPP_NUMBER: !!process.env.WHATSAPP_NUMBER
-    }
+      WHATSAPP_NUMBER: !!process.env.WHATSAPP_NUMBER,
+      GOOGLE_CLIENT_ID: !!process.env.GOOGLE_CLIENT_ID,
+      RESEND_API_KEY: mail.RESEND_API_KEY,
+      SMTP_HOST: mail.SMTP_HOST,
+      SMTP_USER: mail.SMTP_USER,
+      SMTP_PASS: mail.SMTP_PASS,
+      MAIL_FROM: mail.from
+    },
+    mail
   });
+});
+
+app.post('/api/admin/test-mail', requireAdmin, async (req, res) => {
+  const to = String((req.body && req.body.to) || '').trim().toLowerCase();
+  if (!to || !/^\S+@\S+\.\S+$/.test(to)) {
+    return res.status(400).json({ error: 'Indica un correo destino válido en "to"' });
+  }
+  const mail = mailConfig();
+  if (!mail.configured) {
+    return res.status(400).json({
+      error: 'Correo no configurado. Agrega RESEND_API_KEY o SMTP_HOST/SMTP_USER/SMTP_PASS en Vercel.',
+      mail
+    });
+  }
+  const result = await sendMail({
+    to,
+    subject: 'Prueba WhatsMenú — correo OK',
+    text: 'Este es un correo de prueba desde WhatsMenú. Si lo recibes, SMTP/Resend está bien configurado.',
+    html: '<p>Este es un correo de prueba desde <strong>WhatsMenú</strong>.</p><p>Si lo recibes, el envío está bien configurado.</p>'
+  });
+  if (!result.sent) {
+    return res.status(502).json({ ok: false, error: result.reason || 'No se pudo enviar', mail });
+  }
+  res.json({ ok: true, provider: result.provider, to, message: 'Correo de prueba enviado' });
 });
 
 app.post('/api/register', async (req, res) => {

@@ -1362,8 +1362,40 @@
                     <h4>Conteos DB</h4>
                     ${countRows || '<div class="small">Sin datos</div>'}
                   </div>
+                </div>
+                <div class="status-panel" style="margin-top:12px">
+                  <h4>Probar correo</h4>
+                  <p class="small" style="margin:0 0 10px;color:var(--muted)">Envía un mensaje de prueba cuando SMTP/Resend esté configurado.</p>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                    <input id="statusMailTo" type="email" placeholder="destino@correo.com" style="flex:1;min-width:180px" />
+                    <button class="btn" type="button" id="statusMailSend">Enviar prueba</button>
+                  </div>
+                  <div id="statusMailMsg" class="small inline-msg" style="display:none;margin-top:8px"></div>
                 </div>`;
-              meta.textContent = `Consulta servidor ${data.duration_ms} ms · red ${clientMs} ms · Mongo: ${(data.mongo && data.mongo.readyLabel) || 'n/a'}`;
+              meta.textContent = `Consulta servidor ${data.duration_ms} ms · red ${clientMs} ms · Mongo: ${(data.mongo && data.mongo.readyLabel) || 'n/a'} · Mail: ${(data.mail && data.mail.provider) || 'none'}`;
+
+              const mailBtn = document.getElementById('statusMailSend');
+              if(mailBtn){
+                mailBtn.addEventListener('click', async ()=>{
+                  const to = (document.getElementById('statusMailTo').value || '').trim();
+                  showInlineMessage('statusMailMsg','');
+                  mailBtn.disabled = true; mailBtn.textContent = 'Enviando...';
+                  try{
+                    const r = await apiFetch('/api/admin/test-mail', {
+                      method:'POST',
+                      headers:{'content-type':'application/json'},
+                      body: JSON.stringify({ to })
+                    });
+                    const d = await r.json().catch(()=>({}));
+                    if(!r.ok) throw new Error(d.error || 'Falló el envío');
+                    showInlineMessage('statusMailMsg', d.message + ' (' + (d.provider||'') + ') → ' + d.to, 'success');
+                  }catch(err){
+                    showInlineMessage('statusMailMsg', err.message || 'Error', 'error');
+                  }finally{
+                    mailBtn.disabled = false; mailBtn.textContent = 'Enviar prueba';
+                  }
+                });
+              }
             }catch(e){
               overall.innerHTML = '<span class="status-badge is-bad">Error</span>';
               grid.innerHTML = `<div class="small">${esc(e.message)}</div>`;

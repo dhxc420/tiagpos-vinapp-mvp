@@ -98,4 +98,18 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
-module.exports = { sendMail, welcomeEmail, confirmEmail };
+function mailConfig() {
+  const resend = !!process.env.RESEND_API_KEY;
+  const smtp = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+  return {
+    configured: resend || smtp,
+    provider: resend ? 'resend' : (smtp ? 'smtp' : 'none'),
+    from: !!(process.env.MAIL_FROM || process.env.SMTP_FROM),
+    RESEND_API_KEY: resend,
+    SMTP_HOST: !!process.env.SMTP_HOST,
+    SMTP_USER: !!process.env.SMTP_USER,
+    SMTP_PASS: !!process.env.SMTP_PASS
+  };
+}
+
+module.exports = { sendMail, welcomeEmail, confirmEmail, mailConfig };
