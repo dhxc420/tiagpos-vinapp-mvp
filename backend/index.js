@@ -1596,6 +1596,21 @@ app.post('/api/orders/:id/confirm-payment', requireNegocio, async (req, res) => 
   res.json(safe);
 });
 
+app.post('/api/orders/:id/dispatch', requireNegocio, async (req, res) => {
+  db = readDB();
+  const orderIdx = db.orders.findIndex(o => o.id === Number(req.params.id) && o.ownerId === req.user.id);
+  if (orderIdx === -1) return res.status(404).json({ error: 'Order not found' });
+  const order = db.orders[orderIdx];
+  if (order.status === 'cancelled') {
+    return res.status(400).json({ error: 'No se puede despachar un pedido cancelado' });
+  }
+  db.orders[orderIdx].status = 'out_for_delivery';
+  db.orders[orderIdx].dispatched_at = new Date().toISOString();
+  await writeDB(db);
+  const { proof_token, ...safe } = db.orders[orderIdx];
+  res.json(safe);
+});
+
 app.post('/api/orders/:id/proof', async (req, res) => {
   db = readDB();
   const id = Number(req.params.id);

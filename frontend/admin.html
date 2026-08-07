@@ -150,6 +150,7 @@
                 <option value="all">Todos</option>
                 <option value="pending">Pendientes</option>
                 <option value="paid">Pagados</option>
+                <option value="out_for_delivery">En domicilio</option>
               </select>
             </label>
             <button id="reload" class="btn btn-ghost" style="margin-left:12px">Refrescar</button>
@@ -342,6 +343,7 @@
       </div>
       <div class="modal-actions">
         <button id="orderDetailClose" class="btn btn-ghost" type="button">Cerrar</button>
+        <button id="orderDetailDispatch" class="btn" type="button" style="display:none">Confirmar y enviar a domicilio</button>
         <button id="orderDetailConfirm" class="btn btn-primary" type="button" style="display:none">Confirmar pago</button>
       </div>
     </div>
@@ -450,6 +452,57 @@
     }
     function clearFieldError(id){ const el = document.getElementById(id); if(el) el.classList.remove('error'); }
 
+    function orderStatusLabel(status){
+      if(status === 'paid') return 'pagado';
+      if(status === 'pending') return 'pendiente';
+      if(status === 'out_for_delivery') return 'en domicilio';
+      if(status === 'cancelled') return 'cancelado';
+      return status || '';
+    }
+
+    function orderStatusClass(status){
+      if(status === 'paid') return 'status-paid';
+      if(status === 'out_for_delivery') return 'status-delivery';
+      if(status === 'pending') return 'status-pending';
+      return '';
+    }
+
+    function normalizeWaPhone(raw){
+      if(!raw) return '';
+      let d = String(raw).replace(/\D/g, '');
+      if(d.startsWith('00')) d = d.slice(2);
+      if(d.length === 10 && d.startsWith('3')) d = '57' + d;
+      return d;
+    }
+
+    async function resolveOrderWaPhone(order){
+      const user = getUser();
+      return normalizeWaPhone(order.customer_phone)
+        || normalizeWaPhone(user && user.business && user.business.phone)
+        || normalizeWaPhone((await (await fetch('/api/config')).json()).whatsapp_number);
+    }
+
+    function openOrderWhatsApp(order, extraLines){
+      return resolveOrderWaPhone(order).then(toPhone => {
+        if(!toPhone) throw new Error('No hay número de WhatsApp para este pedido');
+        const user = getUser();
+        const store = (user && user.business && user.business.name) || 'la tienda';
+        const lines = [
+          'Hola' + (order.customer_name ? (' ' + order.customer_name) : '') + ',',
+          '',
+          'Te escribimos de ' + store + ' sobre tu pedido #' + order.id + ':',
+          ...(order.items || []).map(i=> '• ' + i.name + ' x' + i.qty + ' — ' + fmtMoney(i.price * i.qty)),
+          '',
+          'Total: ' + fmtMoney(order.total),
+          'Estado: ' + orderStatusLabel(order.status),
+          ...(extraLines || [])
+        ];
+        const url = `https://wa.me/${toPhone}?text=${encodeURIComponent(lines.join('\n'))}`;
+        const w = window.open(url, '_blank');
+        if(!w) window.location.href = url;
+      });
+    }
+
     async function fetchOrders(){
       const res = await apiFetch('/api/orders');
       if(res.status === 401 || res.status === 403){ setToken(null); setUser(null); throw new Error('Unauthorized'); }
@@ -491,19 +544,22 @@
         if(filtered.length===0){ rows.innerHTML = '<tr><td colspan="6">No hay pedidos</td></tr>'; return }
         document.getElementById('filterState').disabled = false;
         document.getElementById('reload').disabled = false;
+        const canDispatch = current && (current.role === 'negocio' || current.role === 'admin');
         rows.innerHTML = filtered.map(o=>{
           const items = o.items.map(i=>`${esc(i.name)} x${esc(i.qty)}`).join(', ');
+          const showDispatch = canDispatch && o.status !== 'out_for_delivery' && o.status !== 'cancelled';
           return `<tr>
             <td>#${esc(o.id)}</td>
             <td>${esc(o.customer_name || 'Anon')}<div class="small">${esc(new Date(o.created_at).toLocaleString())}</div></td>
             <td>${items}</td>
             <td>${fmtMoney(o.total)}</td>
-            <td class="${o.status==='paid' ? 'status-paid' : 'status-pending'}">${esc(o.status)}</td>
-            <td>
+            <td class="${orderStatusClass(o.status)}">${esc(orderStatusLabel(o.status))}</td>
+            <td class="order-actions">
               <button class="btn" onclick="view(${Number(o.id)})">Ver</button>
-                <button class="btn btn-ghost" style="margin-left:6px" onclick="sendOrderWA(${Number(o.id)})">Enviar WA</button>
-                ${o.status!=='paid' ? `<button class="btn" style="background:#059669;margin-left:6px" onclick="markPaid(${Number(o.id)})">Marcar como pagado</button>` : ''}
-              </td>
+              <button class="btn btn-ghost" onclick="sendOrderWA(${Number(o.id)})">Enviar WA</button>
+              ${showDispatch ? `<button class="btn btn-dispatch" onclick="dispatchOrder(${Number(o.id)})">Confirmar y enviar a domicilio</button>` : ''}
+              ${o.status!=='paid' && o.status!=='out_for_delivery' ? `<button class="btn" style="background:#059669" onclick="markPaid(${Number(o.id)})">Marcar como pagado</button>` : ''}
+            </td>
           </tr>`
         }).join('');
       }catch(err){
@@ -524,6 +580,7 @@
       document.getElementById('orderDetailId').value = String(id);
       document.getElementById('orderDetailPayBox').style.display = 'none';
       document.getElementById('orderDetailConfirm').style.display = 'none';
+      document.getElementById('orderDetailDispatch').style.display = 'none';
       document.getElementById('orderDetailProofLink').style.display = 'none';
       document.getElementById('orderDetailPhoneRow').style.display = 'none';
       const proofInput = document.getElementById('proof_input');
@@ -564,8 +621,9 @@
 
       const statusEl = document.getElementById('orderDetailStatus');
       const paid = o.status === 'paid';
-      statusEl.textContent = o.status || '';
-      statusEl.className = 'order-detail-badge ' + (paid ? 'is-paid' : 'is-pending');
+      const delivering = o.status === 'out_for_delivery';
+      statusEl.textContent = orderStatusLabel(o.status);
+      statusEl.className = 'order-detail-badge ' + (paid ? 'is-paid' : (delivering ? 'is-delivery' : 'is-pending'));
 
       document.getElementById('orderDetailItems').innerHTML = (o.items || []).map(i=>
         `<li><span>${esc(i.name)} <em>×${esc(i.qty)}</em></span><strong>${fmtMoney(i.price * (i.qty || 1))}</strong></li>`
@@ -582,7 +640,11 @@
 
       const payBox = document.getElementById('orderDetailPayBox');
       const confirmBtn = document.getElementById('orderDetailConfirm');
-      if(!paid){
+      const dispatchBtn = document.getElementById('orderDetailDispatch');
+      const user = getUser();
+      const canDispatch = user && (user.role === 'negocio' || user.role === 'admin') && o.status !== 'out_for_delivery' && o.status !== 'cancelled';
+      if(dispatchBtn) dispatchBtn.style.display = canDispatch ? 'inline-flex' : 'none';
+      if(!paid && !delivering){
         payBox.style.display = 'block';
         confirmBtn.style.display = 'inline-flex';
       } else {
@@ -614,32 +676,32 @@
         const res = await apiFetch(`/api/orders/${id}`);
         if(!res.ok){ alert('No se pudo cargar la orden'); return }
         const order = await res.json();
-        const user = getUser();
-        // Notify the customer; fall back to store phone only if customer has none
-        function normalizeWaPhone(raw){
-          if(!raw) return '';
-          let d = String(raw).replace(/\D/g, '');
-          if(d.startsWith('00')) d = d.slice(2);
-          if(d.length === 10 && d.startsWith('3')) d = '57' + d;
-          return d;
-        }
-        const toPhone = normalizeWaPhone(order.customer_phone)
-          || normalizeWaPhone(user && user.business && user.business.phone)
-          || normalizeWaPhone((await (await fetch('/api/config')).json()).whatsapp_number);
-        if(!toPhone){ alert('No hay número de WhatsApp para este pedido'); return }
-        const lines = [
-          'Hola' + (order.customer_name ? (' ' + order.customer_name) : '') + ',',
-          '',
-          'Te escribimos de ' + ((user && user.business && user.business.name) || 'la tienda') + ' sobre tu pedido #' + order.id + ':',
-          ...order.items.map(i=> '• ' + i.name + ' x' + i.qty + ' — ' + fmtMoney(i.price * i.qty)),
-          '',
-          'Total: ' + fmtMoney(order.total),
-          'Estado: ' + order.status
-        ];
-        const url = `https://wa.me/${toPhone}?text=${encodeURIComponent(lines.join('\n'))}`;
-        const w = window.open(url, '_blank');
-        if(!w) window.location.href = url;
+        await openOrderWhatsApp(order);
       }catch(e){ alert('Error enviando WA: '+e.message); }
+    }
+
+    async function dispatchOrder(id){
+      if(!confirm('¿Confirmar pedido #'+id+' y avisar envío a domicilio por WhatsApp?')) return;
+      try{
+        const res = await apiFetch(`/api/orders/${id}/dispatch`, { method: 'POST', headers:{'content-type':'application/json'}, body: '{}' });
+        if(res.status === 401 || res.status === 403){ setToken(null); setUser(null); showUnauthorized(); alert('No autorizado'); return }
+        const data = await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(data.error || 'No se pudo despachar');
+        await load();
+        try{
+          await openOrderWhatsApp(data, [
+            '',
+            '✅ Pedido confirmado.',
+            '🛵 Ya va en camino a domicilio. ¡Gracias por tu compra!'
+          ]);
+        }catch(waErr){
+          alert('Pedido marcado como en domicilio, pero no se pudo abrir WhatsApp: ' + waErr.message);
+        }
+        const detailOpen = document.getElementById('orderDetailOverlay');
+        if(detailOpen && detailOpen.style.display !== 'none') await view(id);
+      }catch(e){
+        alert(e.message || 'Error al despachar');
+      }
     }
 
 
@@ -1181,6 +1243,11 @@
     document.getElementById('productEditSave').addEventListener('click', (e)=>{ e.preventDefault(); saveProductEdit(); });
     document.getElementById('productEditOverlay').addEventListener('click', (e)=>{ if(e.target && e.target.id === 'productEditOverlay') hideProductEditModal(); });
     document.getElementById('orderDetailClose').addEventListener('click', (e)=>{ e.preventDefault(); hideOrderDetail(); });
+    document.getElementById('orderDetailDispatch').addEventListener('click', (e)=>{
+      e.preventDefault();
+      const id = Number(document.getElementById('orderDetailId').value);
+      if(id) dispatchOrder(id);
+    });
     document.getElementById('orderDetailConfirm').addEventListener('click', (e)=>{
       e.preventDefault();
       const id = Number(document.getElementById('orderDetailId').value);

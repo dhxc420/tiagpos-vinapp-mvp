@@ -345,6 +345,7 @@ body.is-logged-out{overflow:auto}
 }
 .order-detail-badge.is-paid{background:var(--accent-soft);color:var(--success)}
 .order-detail-badge.is-pending{background:rgba(232,93,4,0.12);color:var(--accent-hot)}
+.order-detail-badge.is-delivery{background:rgba(37,99,235,0.12);color:#2563eb}
 .order-detail-body{display:flex;flex-direction:column;gap:12px}
 .order-detail-row{
   display:flex;justify-content:space-between;align-items:baseline;gap:12px;
@@ -379,6 +380,13 @@ body.is-logged-out{overflow:auto}
 #list thead th{color:var(--accent);font-weight:800}
 .status-paid{color:var(--success);font-weight:700}
 .status-pending{color:var(--accent-hot);font-weight:700}
+.status-delivery{color:#2563eb;font-weight:700}
+.order-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.btn-dispatch{
+  background:#1d4ed8;color:#fff;border-color:#1d4ed8;
+}
+.btn-dispatch:hover{filter:brightness(1.05)}
+html[data-theme="dark"] .btn-dispatch{color:#fff}
 
 #sidebar{background:var(--bg-elev);box-shadow:var(--shadow);border-radius:12px;border:1px solid var(--line)}
 .side-link{display:block;padding:10px 12px;border-radius:8px;color:var(--ink);text-decoration:none;font-weight:700}
