@@ -497,7 +497,20 @@ body.sidebar-open{overflow:hidden}
 }
 
 /* Market / mini-super public catalog */
-.market-body{padding-bottom:100px}
+.market-body{padding-bottom:24px}
+.market-topbar{
+  position:sticky;top:0;z-index:80;
+  background:color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter:blur(10px);
+  margin:0 -8px;padding:10px 8px;
+  border-bottom:1px solid transparent;
+}
+.market-topbar-actions{
+  display:flex;align-items:center;gap:10px;min-width:0;flex:1;justify-content:flex-end;
+}
+.market-contact{
+  max-width:min(42vw,280px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
 .market-layout{
   display:grid;grid-template-columns:1fr;gap:14px;align-items:start;
 }
@@ -535,16 +548,16 @@ html[data-theme="dark"] .market-cat.is-active{color:#04140c}
   padding:8px 0;border-bottom:1px dashed var(--line);font-size:.92rem;
 }
 .market-cart-fab{
-  position:fixed;right:18px;bottom:18px;z-index:90;
-  width:76px;min-height:76px;padding:10px 8px 8px;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-  border:1px solid var(--line);border-radius:20px;
+  position:relative;right:auto;bottom:auto;z-index:1;
+  width:58px;min-height:58px;padding:6px 6px 5px;flex:0 0 auto;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  border:1px solid var(--line);border-radius:16px;
   background:var(--bg-elev);color:var(--ink);
-  box-shadow:var(--shadow);cursor:pointer;
-  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  box-shadow:none;cursor:pointer;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
 }
 .market-cart-fab:hover{
-  transform:translateY(-2px);
+  transform:translateY(-1px);
   border-color:color-mix(in srgb, var(--accent) 40%, var(--line));
 }
 .market-cart-fab.has-items{
@@ -555,14 +568,14 @@ html[data-theme="dark"] .market-cat.is-active{color:#04140c}
   display:inline-flex;align-items:center;justify-content:center;color:var(--accent);
 }
 .market-cart-fab-label{
-  font-size:.72rem;font-weight:800;letter-spacing:.02em;text-transform:lowercase;color:var(--ink);
+  font-size:.68rem;font-weight:800;letter-spacing:.02em;text-transform:lowercase;color:var(--ink);line-height:1.1;
 }
 .market-cart-fab-badge{
-  position:absolute;top:6px;right:8px;min-width:20px;height:20px;padding:0 6px;
+  position:absolute;top:2px;right:2px;min-width:18px;height:18px;padding:0 5px;
   border-radius:999px;background:var(--accent-hot);color:#fff;
-  font-size:.72rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center;
+  font-size:.68rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center;
 }
-.market-cart-modal{width:480px}
+.market-cart-modal{width:480px;max-height:min(88svh,720px);overflow:auto}
 .market-cart-close{
   width:36px;height:36px;border-radius:10px;border:1px solid var(--line);
   background:var(--bg);color:var(--ink);font-size:1.4rem;line-height:1;cursor:pointer;
@@ -613,13 +626,26 @@ html[data-theme="dark"] .market-cat.is-active{color:#04140c}
   .menu-form-grid{grid-template-columns:1fr 1fr}
   .menu-form-grid .span-2,.menu-form-grid .span-3{grid-column:1 / -1}
   .market-cart-modal{width:100%}
+  .market-contact{display:none}
 }
 @media (max-width:520px){
   .market-grid{grid-template-columns:1fr}
   .menu-form-grid{grid-template-columns:1fr}
-  .market-cart-fab{right:14px;bottom:14px;width:70px;min-height:70px}
+  .market-topbar{
+    margin:0 -4px;padding:8px 4px;
+    top:env(safe-area-inset-top, 0px);
+  }
+  .market-topbar .brand{font-size:1.05rem}
+  .market-topbar-actions{gap:8px}
+  .market-cart-fab{width:54px;min-height:54px;border-radius:14px}
+  .market-cart-fab-label{font-size:.64rem}
+  .market-toolbar h3{width:100%}
+  .market-toolbar input[type=search]{max-width:none;width:100%}
   .market-cart-footer .modal-actions{flex-direction:column}
   .market-cart-footer .btn-primary,.market-cart-footer .btn-ghost{width:100%}
+  .biz-header{gap:12px}
+  .biz-title-row{flex-wrap:wrap}
+  .biz-title-row h1{font-size:1.35rem}
 }
 
 .open-toggle{
