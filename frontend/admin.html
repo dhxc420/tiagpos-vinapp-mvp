@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Admin - Gestor de Pedidos</title>
+  <title>Panel — Tiagoo Menú</title>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
   <script>(function(){try{var t=localStorage.getItem('tiagpos-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
   <link rel="stylesheet" href="/styles.css">
@@ -16,7 +16,7 @@
           <span></span><span></span><span></span>
         </button>
         <div>
-          <h1 class="admin-title">tiagPOS — Panel</h1>
+          <h1 class="admin-title">Tiagoo Menú — Panel</h1>
           <div class="small admin-subtitle" style="color:var(--muted)">Operación del negocio</div>
         </div>
       </div>
@@ -670,7 +670,7 @@
           if(menuToggle) menuToggle.style.display = '';
           if(sidebarLogo && user.business && user.business.logo){ sidebarLogo.src = user.business.logo; sidebarLogo.style.display='block'; }
           if(sidebarBizName) sidebarBizName.textContent = user.role === 'admin'
-            ? 'Admin tiagPOS'
+            ? 'Admin Tiagoo Menú'
             : ((user.business && user.business.name) ? user.business.name : (user.username || 'Negocio'));
           const roleEl = document.getElementById('sidebarBizRole');
           if(roleEl) roleEl.textContent = user.role === 'admin' ? 'Administrador' : 'Negocio';
