@@ -152,6 +152,19 @@ async function initMongoIfConfigured() {
   }
 }
 
+/** Retry Mongo when URI is set but the first cold-start connect failed (Atlas IP / transient). */
+async function ensureMongoConnected() {
+  const mongoUri = process.env.MONGO_URI || process.env.MONGOURL || process.env.MONGOURL_SHORT;
+  if (!mongoUri) return false;
+  if (usingMongo && mongoModels && mongoModels.mongoose.connection.readyState === 1) return true;
+  const loaded = await initMongoIfConfigured();
+  if (loaded) {
+    db = loaded;
+    return true;
+  }
+  return false;
+}
+
 function readFileDb() {
   const defaultSeed = {
     menus: [
@@ -587,8 +600,15 @@ const readyPromise = (async () => {
 app.use(async (req, res, next) => {
   try {
     await readyPromise;
+    if (!usingMongo) {
+      await ensureMongoConnected();
+    }
     if (usingMongo) {
-      try { db = await loadDbFromMongo(); } catch (e) { console.warn('Mongo reload failed:', e.message); }
+      try { db = await loadDbFromMongo(); } catch (e) {
+        console.warn('Mongo reload failed:', e.message);
+        usingMongo = false;
+        await ensureMongoConnected();
+      }
     }
     // Serverless: seed Merca Mono if missing after Mongo reload
     const hasMerca = db.users && db.users.some(u => u.business && u.business.slug === 'mercamono');
@@ -1058,7 +1078,9 @@ app.get('/api/admin/status', requireAdmin, async (req, res) => {
     process.env.GOOGLE_CLIENT_ID ? 'GOOGLE_CLIENT_ID configurado' : 'GOOGLE_CLIENT_ID ausente');
   pushCheck('mongo', 'Base de datos MongoDB', mongo.ok || (!mongo.configured && !usingMongo),
     mongo.configured
-      ? (mongo.ok ? `Conectado · ping ${mongo.ping_ms} ms` : (mongo.error || mongo.readyLabel))
+      ? (mongo.ok
+        ? `Conectado · ping ${mongo.ping_ms} ms`
+        : `${mongo.error || mongo.readyLabel} · Revisa Network Access en Atlas (permite 0.0.0.0/0 para Vercel)`)
       : 'Sin MONGO_URI · usando archivo local/tmp');
   pushCheck('memory_db', 'Datos en memoria', !!(db && db.users), `${counts.users} users · ${counts.orders} orders · ${counts.menus} menus`);
 

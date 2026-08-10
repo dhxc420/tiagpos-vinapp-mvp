@@ -5,6 +5,16 @@ Instrucciones para configurar variables de entorno en Vercel
 3. Añade las siguientes variables (Key) y pega el valor que tengas en cada Value:
 
 - MONGO_URI: tu cadena de conexión a MongoDB Atlas (ej. mongodb+srv://user:pass@cluster.mongodb.net/dbname)
+
+## MongoDB Atlas (obligatorio en Vercel)
+
+Vercel usa IPs dinámicas. En Atlas → **Network Access** agrega:
+
+- `0.0.0.0/0` (Allow access from anywhere)
+
+Si no, verás `Mongo not connected` / catálogos vacíos porque la app cae a una DB temporal sin tus productos reales.
+
+También confirma que el cluster no esté pausado (free tier).
 - JWT_SECRET: una clave larga y aleatoria para firmar JWT (recomendado 32+ bytes)
 - WHATSAPP_NUMBER: número para integrar WhatsApp sin el signo + (ej. 573001234567)
 - CHECKOUT_BASE: URL base del checkout (ej. https://tu-dominio.com/checkout.html)
