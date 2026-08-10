@@ -327,7 +327,9 @@
       <div class="order-detail-body">
         <div class="order-detail-row"><span>Cliente</span><strong id="orderDetailCustomer"></strong></div>
         <div class="order-detail-row" id="orderDetailPhoneRow" style="display:none"><span>Teléfono</span><strong id="orderDetailPhone"></strong></div>
+        <div class="order-detail-row" id="orderDetailAddressRow" style="display:none"><span>Dirección</span><strong id="orderDetailAddress"></strong></div>
         <div class="order-detail-row" id="orderDetailPayRow" style="display:none"><span>Método de pago</span><strong id="orderDetailPayMethod"></strong></div>
+        <div class="order-detail-row" id="orderDetailNotesRow" style="display:none"><span>Comentarios</span><strong id="orderDetailNotes"></strong></div>
         <div class="order-detail-items-wrap">
           <div class="small" style="font-weight:750;margin-bottom:8px;color:var(--muted)">Items</div>
           <ul id="orderDetailItems" class="order-detail-items"></ul>
@@ -558,6 +560,8 @@
         String(o.id),
         o.customer_name || '',
         o.customer_phone || '',
+        o.customer_address || '',
+        o.customer_notes || '',
         orderStatusLabel(o.status),
         o.status || '',
         o.payment_method || '',
@@ -591,6 +595,8 @@
           <div class="order-card-main">
             <strong class="order-card-customer">${esc(o.customer_name || 'Anon')}</strong>
             <div class="small order-card-meta">${esc(new Date(o.created_at).toLocaleString())}${payLabel ? ' · ' + esc(payLabel) : ''}</div>
+            ${o.customer_address ? `<div class="small order-card-meta">📍 ${esc(o.customer_address)}</div>` : ''}
+            ${o.customer_notes ? `<div class="small order-card-note">💬 ${esc(o.customer_notes)}</div>` : ''}
             <div class="order-card-items">${items}</div>
             ${o.status==='cancelled'&&o.cancel_reason?`<div class="small order-card-note">${esc(o.cancel_reason)}</div>`:''}
           </div>
@@ -684,7 +690,9 @@
       document.getElementById('orderDetailCancel').style.display = 'none';
       document.getElementById('orderDetailProofLink').style.display = 'none';
       document.getElementById('orderDetailPhoneRow').style.display = 'none';
+      document.getElementById('orderDetailAddressRow').style.display = 'none';
       document.getElementById('orderDetailPayRow').style.display = 'none';
+      document.getElementById('orderDetailNotesRow').style.display = 'none';
       const proofInput = document.getElementById('proof_input');
       if(proofInput) proofInput.value = '';
       ov.style.display = 'flex';
@@ -721,6 +729,15 @@
         phoneRow.style.display = 'none';
       }
 
+      const addrRow = document.getElementById('orderDetailAddressRow');
+      const addrEl = document.getElementById('orderDetailAddress');
+      if(o.customer_address){
+        addrEl.textContent = o.customer_address;
+        addrRow.style.display = 'flex';
+      } else {
+        addrRow.style.display = 'none';
+      }
+
       const payRow = document.getElementById('orderDetailPayRow');
       const payEl = document.getElementById('orderDetailPayMethod');
       if(o.payment_method){
@@ -728,6 +745,15 @@
         payRow.style.display = 'flex';
       } else {
         payRow.style.display = 'none';
+      }
+
+      const notesRow = document.getElementById('orderDetailNotesRow');
+      const notesEl = document.getElementById('orderDetailNotes');
+      if(o.customer_notes){
+        notesEl.textContent = o.customer_notes;
+        notesRow.style.display = 'flex';
+      } else {
+        notesRow.style.display = 'none';
       }
 
       const statusEl = document.getElementById('orderDetailStatus');

@@ -93,6 +93,14 @@
             <option value="transferencia">Transferencia</option>
           </select>
         </label>
+        <label class="login-field" for="custAddress" style="margin-top:10px">
+          <span>Dirección de entrega</span>
+          <input id="custAddress" placeholder="Barrio, calle, número, referencias" autocomplete="street-address" />
+        </label>
+        <label class="login-field" for="custNotes" style="margin-top:10px">
+          <span>Comentarios (opcional)</span>
+          <textarea id="custNotes" rows="2" placeholder="Ej. Pago con $50.000, necesito vuelta"></textarea>
+        </label>
       </div>
       <div class="market-cart-footer">
         <div id="cartTotal" class="market-cart-total"></div>
@@ -392,7 +400,7 @@
       return phone;
     }
 
-    function buildStoreMessage(order, customer, customerPhone, items){
+    function buildStoreMessage(order, customer, customerPhone, customerAddress, customerNotes, items){
       const bizName = (BUSINESS && BUSINESS.name) || slug || 'tienda';
       const payLabel = order.payment_method === 'transferencia' ? 'Transferencia' : (order.payment_method === 'efectivo' ? 'Efectivo' : '');
       return [
@@ -400,7 +408,9 @@
         '',
         'Cliente: ' + customer,
         customerPhone ? ('WhatsApp cliente: ' + customerPhone) : null,
+        customerAddress ? ('Dirección: ' + customerAddress) : null,
         payLabel ? ('Método de pago: ' + payLabel) : null,
+        customerNotes ? ('Comentarios: ' + customerNotes) : null,
         '',
         '*Detalle:*',
         ...items.map(c => '• ' + c.name + ' x' + c.qty + ' — ' + fmtMoney(c.price * c.qty)),
@@ -418,9 +428,17 @@
       const customer = (document.getElementById('custName').value || '').trim() || 'Cliente';
       const customerPhone = (document.getElementById('custPhone').value || '').trim();
       const paymentMethod = (document.getElementById('payMethod') || {}).value || 'efectivo';
+      const customerAddress = (document.getElementById('custAddress').value || '').trim();
+      const customerNotes = (document.getElementById('custNotes').value || '').trim();
       if(!CART.length){
         msgEl.textContent = 'Agrega productos al carrito primero';
         msgEl.className='small inline-msg error'; msgEl.style.display='block';
+        return;
+      }
+      if(!customerAddress){
+        msgEl.textContent = 'Indica la dirección de entrega';
+        msgEl.className='small inline-msg error'; msgEl.style.display='block';
+        document.getElementById('custAddress').focus();
         return;
       }
       let storePhone;
@@ -441,6 +459,8 @@
           body: JSON.stringify({
             customer_name: customer,
             customer_phone: customerPhone || null,
+            customer_address: customerAddress,
+            customer_notes: customerNotes || null,
             payment_method: paymentMethod,
             items,
             ownerSlug: slug
@@ -451,12 +471,14 @@
           throw new Error(t.error || res.statusText);
         }
         const order = await res.json();
-        openWhatsAppToStore(storePhone, buildStoreMessage(order, customer, customerPhone, items));
+        openWhatsAppToStore(storePhone, buildStoreMessage(order, customer, customerPhone, customerAddress, customerNotes, items));
         msgEl.textContent = 'Pedido #' + order.id + ' creado. Se abrió WhatsApp.';
         msgEl.className='small inline-msg success'; msgEl.style.display='block';
         CART = [];
         document.getElementById('custName').value = '';
         document.getElementById('custPhone').value = '';
+        document.getElementById('custAddress').value = '';
+        document.getElementById('custNotes').value = '';
         const payEl = document.getElementById('payMethod'); if(payEl) payEl.value = 'efectivo';
         await loadMenu();
       }catch(e){

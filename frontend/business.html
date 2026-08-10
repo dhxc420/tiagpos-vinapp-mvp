@@ -61,6 +61,10 @@
             <option value="efectivo">Efectivo</option>
             <option value="transferencia">Transferencia</option>
           </select>
+          <label class="small" for="custAddress">Dirección de entrega</label>
+          <input id="custAddress" placeholder="Barrio, calle, número, referencias" style="width:100%;margin:4px 0 8px;padding:8px;border:1px solid #ddd;border-radius:8px" />
+          <label class="small" for="custNotes">Comentarios (opcional)</label>
+          <textarea id="custNotes" rows="2" placeholder="Ej. Pago con $50.000, necesito vuelta" style="width:100%;margin:4px 0 8px;padding:8px;border:1px solid #ddd;border-radius:8px;resize:vertical"></textarea>
         </div>
         <div style="margin-top:12px">
           <div id="cartTotal" style="font-weight:800"></div>
@@ -254,7 +258,7 @@
       return phone;
     }
 
-    function buildStoreMessage(order, customer, customerPhone, items){
+    function buildStoreMessage(order, customer, customerPhone, customerAddress, customerNotes, items){
       const bizName = (BUSINESS && BUSINESS.name) || slug || 'tienda';
       const payLabel = order.payment_method === 'transferencia' ? 'Transferencia' : (order.payment_method === 'efectivo' ? 'Efectivo' : '');
       const lines = [
@@ -262,7 +266,9 @@
         '',
         'Cliente: ' + customer,
         customerPhone ? ('WhatsApp cliente: ' + customerPhone) : null,
+        customerAddress ? ('Dirección: ' + customerAddress) : null,
         payLabel ? ('Método de pago: ' + payLabel) : null,
+        customerNotes ? ('Comentarios: ' + customerNotes) : null,
         '',
         '*Detalle:*',
         ...items.map(c => '• ' + c.name + ' x' + c.qty + ' — ' + fmtMoney(c.price * c.qty)),
@@ -282,10 +288,19 @@
       const customer = (document.getElementById('custName').value || '').trim() || 'Cliente';
       const customerPhone = (document.getElementById('custPhone').value || '').trim();
       const paymentMethod = (document.getElementById('payMethod') || {}).value || 'efectivo';
+      const customerAddress = (document.getElementById('custAddress').value || '').trim();
+      const customerNotes = (document.getElementById('custNotes').value || '').trim();
       if(CART.length === 0){
         msgEl.textContent = 'Agrega productos al carrito primero';
         msgEl.className='small inline-msg error';
         msgEl.style.display='block';
+        return;
+      }
+      if(!customerAddress){
+        msgEl.textContent = 'Indica la dirección de entrega';
+        msgEl.className='small inline-msg error';
+        msgEl.style.display='block';
+        document.getElementById('custAddress').focus();
         return;
       }
 
@@ -313,6 +328,8 @@
           body: JSON.stringify({
             customer_name: customer,
             customer_phone: customerPhone || null,
+            customer_address: customerAddress,
+            customer_notes: customerNotes || null,
             payment_method: paymentMethod,
             items,
             ownerSlug: slug
@@ -323,7 +340,7 @@
           throw new Error(t.error || res.statusText);
         }
         const order = await res.json();
-        const message = buildStoreMessage(order, customer, customerPhone, items);
+        const message = buildStoreMessage(order, customer, customerPhone, customerAddress, customerNotes, items);
         openWhatsAppToStore(storePhone, message);
 
         msgEl.textContent = 'Pedido #' + order.id + ' creado. Se abrió WhatsApp para enviarlo a la tienda.';
@@ -332,6 +349,8 @@
         CART = [];
         document.getElementById('custName').value = '';
         document.getElementById('custPhone').value = '';
+        document.getElementById('custAddress').value = '';
+        document.getElementById('custNotes').value = '';
         const payEl = document.getElementById('payMethod'); if(payEl) payEl.value = 'efectivo';
         renderCart();
       }catch(e){

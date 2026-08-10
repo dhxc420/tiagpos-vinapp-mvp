@@ -35,6 +35,8 @@ const orderSchema = new mongoose.Schema({
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true, sparse: true },
   customer_name: String,
   customer_phone: String,
+  customer_address: String,
+  customer_notes: String,
   items: Array,
   total: Number,
   status: String,

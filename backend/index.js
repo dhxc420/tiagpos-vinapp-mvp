@@ -75,6 +75,8 @@ function mapMongoToDb(users, menus, orders, inventories, cash) {
       ownerId: o.legacyOwnerId || null,
       customer_name: o.customer_name,
       customer_phone: o.customer_phone,
+      customer_address: o.customer_address || null,
+      customer_notes: o.customer_notes || null,
       items: o.items,
       total: o.total,
       status: o.status,
@@ -251,6 +253,8 @@ async function writeDB(current) {
           legacyOwnerId: o.ownerId || null,
           customer_name: o.customer_name,
           customer_phone: o.customer_phone || null,
+          customer_address: o.customer_address || null,
+          customer_notes: o.customer_notes || null,
           items: o.items || [],
           total: o.total || 0,
           status: o.status || 'pending',
@@ -1389,9 +1393,12 @@ app.get('/b/:slug', (req, res) => {
 });
 
 app.post('/api/orders', async (req, res) => {
-  const { customer_name, customer_phone, items, ownerSlug, payment_method } = req.body || {};
+  const { customer_name, customer_phone, customer_address, customer_notes, items, ownerSlug, payment_method } = req.body || {};
   if (!items || !Array.isArray(items) || !items.length) return res.status(400).json({ error: 'items array required' });
   const payMethod = ['efectivo', 'transferencia'].includes(payment_method) ? payment_method : 'efectivo';
+  const address = customer_address ? String(customer_address).trim().slice(0, 200) : '';
+  if (!address) return res.status(400).json({ error: 'Dirección de entrega requerida' });
+  const notes = customer_notes ? String(customer_notes).trim().slice(0, 300) : null;
   db = readDB();
 
   let ownerId = null;
@@ -1441,6 +1448,8 @@ app.post('/api/orders', async (req, res) => {
     ownerId,
     customer_name: String(customer_name || 'Anon').slice(0, 80),
     customer_phone: customer_phone ? String(customer_phone).slice(0, 30) : null,
+    customer_address: address,
+    customer_notes: notes || null,
     payment_method: payMethod,
     items: pricedItems,
     total,
@@ -1539,6 +1548,8 @@ app.get('/api/reports', requireNegocio, (req, res) => {
         id: o.id,
         cliente: o.customer_name || 'Anon',
         telefono: o.customer_phone || '',
+        direccion: o.customer_address || '',
+        comentarios: o.customer_notes || '',
         items: (o.items || []).map(i => `${i.name} x${i.qty}`).join('; '),
         total: Number(o.total || 0),
         estado: o.status,
