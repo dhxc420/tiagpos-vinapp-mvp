@@ -300,6 +300,12 @@
         <label>Unidad
           <input id="productEditUnit" placeholder="kg, lb, und..." />
         </label>
+        <label class="span-3">Imagen del producto
+          <input id="productEditImageFile" type="file" accept="image/png,image/jpeg,image/webp" />
+          <img id="productEditImagePreview" class="menu-image-preview" alt="Vista previa" />
+          <input type="hidden" id="productEditImageData" />
+          <button id="productEditImageClear" class="btn btn-ghost" type="button" style="margin-top:6px;display:none">Quitar imagen</button>
+        </label>
         <label class="product-edit-avail">
           <input id="productEditAvail" type="checkbox" />
           Disponible
@@ -1390,6 +1396,25 @@
 
     let _productEditCats = [];
     let _onProductSaved = null;
+    let _productEditImageDirty = false;
+
+    function setProductEditImagePreview(url){
+      const prev = document.getElementById('productEditImagePreview');
+      const clearBtn = document.getElementById('productEditImageClear');
+      const dataEl = document.getElementById('productEditImageData');
+      if(!prev) return;
+      if(url){
+        prev.src = url;
+        prev.classList.add('is-visible');
+        if(dataEl) dataEl.value = url;
+        if(clearBtn) clearBtn.style.display = '';
+      } else {
+        prev.removeAttribute('src');
+        prev.classList.remove('is-visible');
+        if(dataEl) dataEl.value = '';
+        if(clearBtn) clearBtn.style.display = 'none';
+      }
+    }
 
     function fillProductEditCategories(selected){
       const sel = document.getElementById('productEditCat');
@@ -1402,6 +1427,7 @@
     function showProductEditModal(item, cats, onSaved){
       _productEditCats = Array.isArray(cats) ? cats : [];
       _onProductSaved = typeof onSaved === 'function' ? onSaved : null;
+      _productEditImageDirty = false;
       showInlineMessage('productEditMsg','');
       document.getElementById('productEditId').value = item.id;
       document.getElementById('productEditName').value = item.name || '';
@@ -1410,6 +1436,9 @@
       document.getElementById('productEditStock').value = item.stock == null ? '' : item.stock;
       document.getElementById('productEditUnit').value = item.unit || '';
       document.getElementById('productEditAvail').checked = !!item.available;
+      const fileEl = document.getElementById('productEditImageFile');
+      if(fileEl) fileEl.value = '';
+      setProductEditImagePreview(item.image || '');
       fillProductEditCategories(item.category || '');
       document.getElementById('productEditOverlay').style.display = 'flex';
       setTimeout(()=> document.getElementById('productEditName').focus(), 40);
@@ -1419,6 +1448,7 @@
       document.getElementById('productEditOverlay').style.display = 'none';
       showInlineMessage('productEditMsg','');
       _onProductSaved = null;
+      _productEditImageDirty = false;
     }
 
     async function saveProductEdit(){
@@ -1439,6 +1469,10 @@
           name, description, price, category, unit, available,
           stock: stockRaw === '' ? null : Number(stockRaw)
         };
+        if(_productEditImageDirty){
+          const imgVal = (document.getElementById('productEditImageData').value || '').trim();
+          payload.image = imgVal || null;
+        }
         const r = await apiFetch('/api/menu/'+id, {
           method:'PUT',
           headers:{'content-type':'application/json'},
@@ -1461,6 +1495,31 @@
     document.getElementById('productEditCancel').addEventListener('click', (e)=>{ e.preventDefault(); hideProductEditModal(); });
     document.getElementById('productEditSave').addEventListener('click', (e)=>{ e.preventDefault(); saveProductEdit(); });
     document.getElementById('productEditOverlay').addEventListener('click', (e)=>{ if(e.target && e.target.id === 'productEditOverlay') hideProductEditModal(); });
+    (function(){
+      const fileEl = document.getElementById('productEditImageFile');
+      const clearBtn = document.getElementById('productEditImageClear');
+      if(fileEl){
+        fileEl.addEventListener('change', ()=>{
+          const f = fileEl.files && fileEl.files[0];
+          if(!f) return;
+          if(f.size > 1_200_000){ showInlineMessage('productEditMsg','Imagen muy pesada (máx ~1MB)', 'error'); fileEl.value=''; return }
+          const reader = new FileReader();
+          reader.onload = (ev)=>{
+            _productEditImageDirty = true;
+            setProductEditImagePreview(ev.target.result);
+          };
+          reader.readAsDataURL(f);
+        });
+      }
+      if(clearBtn){
+        clearBtn.addEventListener('click', (e)=>{
+          e.preventDefault();
+          _productEditImageDirty = true;
+          if(fileEl) fileEl.value = '';
+          setProductEditImagePreview('');
+        });
+      }
+    })();
     document.getElementById('orderDetailClose').addEventListener('click', (e)=>{ e.preventDefault(); hideOrderDetail(); });
     document.getElementById('orderDetailDispatch').addEventListener('click', (e)=>{
       e.preventDefault();
@@ -2239,6 +2298,11 @@
                 <label>Unidad
                   <input id="menuUnit" placeholder="kg, lb, und..." />
                 </label>
+                <label class="span-3">Imagen del producto
+                  <input id="menuImageFile" type="file" accept="image/png,image/jpeg,image/webp" />
+                  <img id="menuImagePreview" class="menu-image-preview" alt="Vista previa" />
+                  <input type="hidden" id="menuImageData" value="" />
+                </label>
                 <label style="flex-direction:row;align-items:center;gap:8px;margin-top:18px">
                   <input id="menuAvail" type="checkbox" checked /> Disponible
                 </label>
@@ -2274,6 +2338,31 @@
           if(menuShowFormBtn) menuShowFormBtn.addEventListener('click', openMenuForm);
           const menuCancelForm = document.getElementById('menuCancelForm');
           if(menuCancelForm) menuCancelForm.addEventListener('click', closeMenuForm);
+          const menuImageFile = document.getElementById('menuImageFile');
+          if(menuImageFile){
+            menuImageFile.addEventListener('change', ()=>{
+              const f = menuImageFile.files && menuImageFile.files[0];
+              const prev = document.getElementById('menuImagePreview');
+              const dataEl = document.getElementById('menuImageData');
+              if(!f){
+                if(prev){ prev.removeAttribute('src'); prev.classList.remove('is-visible'); }
+                if(dataEl) dataEl.value = '';
+                return;
+              }
+              if(f.size > 1_200_000){
+                const msgEl = document.getElementById('menuMsg');
+                if(msgEl){ msgEl.textContent='Imagen muy pesada (máx ~1MB)'; msgEl.className='small inline-msg error'; msgEl.style.display='block'; }
+                menuImageFile.value = '';
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = (ev)=>{
+                if(dataEl) dataEl.value = ev.target.result;
+                if(prev){ prev.src = ev.target.result; prev.classList.add('is-visible'); }
+              };
+              reader.readAsDataURL(f);
+            });
+          }
           let _menuCache = [];
           function getMenuSearchQuery(){
             const el = document.getElementById('menuSearch');
@@ -2292,9 +2381,12 @@
             }
             menuListEl.innerHTML = `<div class="menu-admin-list">${items.map(i=>`<article class="menu-admin-card" data-id="${i.id}">
                 <div class="menu-admin-card-top">
-                  <div>
-                    <strong>${esc(i.name)}</strong>
-                    ${i.description?`<div class="small">${esc(i.description)}</div>`:''}
+                  <div style="display:flex;gap:10px;align-items:flex-start;min-width:0">
+                    ${i.image ? `<img class="menu-admin-thumb" src="${esc(i.image)}" alt="" />` : ''}
+                    <div style="min-width:0">
+                      <strong>${esc(i.name)}</strong>
+                      ${i.description?`<div class="small">${esc(i.description)}</div>`:''}
+                    </div>
                   </div>
                   <span class="market-chip">${esc(i.category||'General')}</span>
                 </div>
@@ -2344,17 +2436,23 @@
             const unit = document.getElementById('menuUnit').value.trim();
             const stockRaw = document.getElementById('menuStock').value;
             const avail = document.getElementById('menuAvail').checked;
+            const image = (document.getElementById('menuImageData').value || '').trim() || null;
             const msgEl = document.getElementById('menuMsg'); msgEl.style.display='none';
             if(!name){ msgEl.textContent='Nombre requerido'; msgEl.className='small inline-msg error'; msgEl.style.display='block'; return }
             const payload = {
               name, price, description, category, unit, available: avail,
               stock: stockRaw === '' ? null : Number(stockRaw)
             };
+            if(image) payload.image = image;
             const r = await apiFetch('/api/menu', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
             if(!r.ok){ const t = await r.json(); msgEl.textContent = t.error || 'Error'; msgEl.className='small inline-msg error'; msgEl.style.display='block'; return }
             document.getElementById('menuName').value=''; document.getElementById('menuPrice').value='';
             document.getElementById('menuDesc').value=''; document.getElementById('menuStock').value='';
             document.getElementById('menuUnit').value=''; document.getElementById('menuAvail').checked=true;
+            document.getElementById('menuImageData').value='';
+            const imgFile = document.getElementById('menuImageFile'); if(imgFile) imgFile.value='';
+            const imgPrev = document.getElementById('menuImagePreview');
+            if(imgPrev){ imgPrev.removeAttribute('src'); imgPrev.classList.remove('is-visible'); }
             msgEl.textContent='Agregado'; msgEl.className='small inline-msg success'; msgEl.style.display='block';
             closeMenuForm();
             loadMenuItems();

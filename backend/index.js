@@ -68,7 +68,8 @@ function mapMongoToDb(users, menus, orders, inventories, cash) {
       stock: typeof m.stock === 'number' ? m.stock : null,
       category: m.category || '',
       unit: m.unit || '',
-      available: m.available
+      available: m.available,
+      image: m.image || null
     })),
     orders: (orders || []).map(o => ({
       id: o.legacyId || 0,
@@ -251,7 +252,8 @@ async function writeDB(current) {
           stock: typeof m.stock === 'number' ? m.stock : null,
           category: m.category || '',
           unit: m.unit || '',
-          available: !!m.available
+          available: !!m.available,
+          image: m.image || null
         }
       },
       { upsert: true }
@@ -1305,6 +1307,26 @@ async function saveBusinessImage(req, res, field) {
 app.post('/api/me/avatar', requireAuth, (req, res) => saveBusinessImage(req, res, 'logo'));
 app.post('/api/me/banner', requireAuth, (req, res) => saveBusinessImage(req, res, 'banner'));
 
+function persistMenuImage(ownerId, menuId, image) {
+  if (image === null || image === '') return null;
+  if (typeof image !== 'string') return undefined;
+  if (image.startsWith('/uploads/')) return image;
+  const m = image.match(/^data:(image\/(png|jpeg|jpg|webp));base64,(.+)$/);
+  if (!m) return undefined;
+  if (IS_SERVERLESS) {
+    if (image.length > 1_500_000) {
+      const err = new Error('image too large (max ~1MB)');
+      err.status = 400;
+      throw err;
+    }
+    return image;
+  }
+  const ext = m[2] === 'jpeg' ? 'jpg' : m[2];
+  const filename = `${ownerId}_menu_${menuId || 'new'}_${Date.now()}.${ext}`;
+  fs.writeFileSync(path.join(UPLOAD_DIR, filename), Buffer.from(m[3], 'base64'));
+  return `/uploads/${filename}`;
+}
+
 app.get('/api/config', (req, res) => {
   res.json({
     whatsapp_number: process.env.WHATSAPP_NUMBER || '573001234567',
@@ -1340,11 +1362,22 @@ app.get('/api/menu/my', requireNegocio, (req, res) => {
 });
 
 app.post('/api/menu', requireNegocio, async (req, res) => {
-  const { name, price, available, description, category, stock, unit } = req.body || {};
+  const { name, price, available, description, category, stock, unit, image } = req.body || {};
   if (!name) return res.status(400).json({ error: 'name required' });
   db = readDB();
+  const id = ++db.lastMenuId;
+  let imageUrl = null;
+  try {
+    if (typeof image !== 'undefined') {
+      const persisted = persistMenuImage(req.user.id, id, image);
+      if (persisted === undefined && image) return res.status(400).json({ error: 'invalid image data' });
+      imageUrl = persisted || null;
+    }
+  } catch (e) {
+    return res.status(e.status || 400).json({ error: e.message || 'invalid image' });
+  }
   const item = {
-    id: ++db.lastMenuId,
+    id,
     ownerId: req.user.id,
     name: String(name).slice(0, 120),
     description: description != null ? String(description).slice(0, 400) : '',
@@ -1352,7 +1385,8 @@ app.post('/api/menu', requireNegocio, async (req, res) => {
     category: category != null ? String(category).slice(0, 60) : '',
     unit: unit != null ? String(unit).slice(0, 30) : '',
     stock: (stock === '' || stock == null) ? null : Math.max(0, Number(stock)),
-    available: typeof available === 'undefined' ? true : !!available
+    available: typeof available === 'undefined' ? true : !!available,
+    image: imageUrl
   };
   if (Number.isNaN(item.stock)) item.stock = null;
   db.menus.push(item);
@@ -1379,6 +1413,15 @@ app.put('/api/menu/:id', requireNegocio, async (req, res) => {
   if (typeof body.unit === 'string') db.menus[idx].unit = body.unit.slice(0, 30);
   if (typeof body.price !== 'undefined') db.menus[idx].price = Number(body.price || 0);
   if (typeof body.available !== 'undefined') db.menus[idx].available = !!body.available;
+  if (typeof body.image !== 'undefined') {
+    try {
+      const persisted = persistMenuImage(req.user.id, id, body.image);
+      if (persisted === undefined && body.image) return res.status(400).json({ error: 'invalid image data' });
+      db.menus[idx].image = persisted || null;
+    } catch (e) {
+      return res.status(e.status || 400).json({ error: e.message || 'invalid image' });
+    }
+  }
   await writeDB(db);
   res.json(db.menus[idx]);
 });
