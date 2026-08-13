@@ -475,7 +475,10 @@
         });
       });
 
+      let finished = false;
       const finish = ()=>{
+        if(finished) return;
+        finished = true;
         if(fly.parentNode) fly.parentNode.removeChild(fly);
         if(target){
           target.classList.remove('is-catch');
@@ -492,7 +495,9 @@
         }
         done();
       };
-      fly.addEventListener('transitionend', finish, { once: true });
+      fly.addEventListener('transitionend', (e)=>{
+        if(e.propertyName === 'transform' || e.propertyName === 'opacity') finish();
+      });
       setTimeout(finish, 620);
     }
 
