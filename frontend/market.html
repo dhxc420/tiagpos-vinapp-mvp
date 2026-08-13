@@ -156,11 +156,6 @@
       return url;
     }
 
-    function isMeatCategory(cat){
-      const c = String(cat || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      return c.includes('carnic') || c === 'carne' || c.includes('carne ');
-    }
-
     const CAT_ICONS = {
       all: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
       carniceria: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 4c2 1 4 3.5 4 7 0 4-2.5 7-5.5 9"/><path d="M9.5 20C6.5 18 4 15 4 11c0-3.5 2-6 4-7"/><path d="M8 10c1.5 2 4.5 4 8 4"/><circle cx="10" cy="8" r="1"/></svg>',
