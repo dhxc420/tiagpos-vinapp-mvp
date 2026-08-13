@@ -108,7 +108,15 @@ function mapMongoToDb(users, menus, orders, inventories, cash) {
       confirmExpires: u.confirmExpires || null
     })),
     inventories: (inventories || []).map(i => ({ id: i.legacyId || 0, ownerId: i.legacyOwnerId || null, name: i.name, qty: i.qty, unit: i.unit })),
-    cash: (cash || []).map(c => ({ id: c.legacyId || 0, ownerId: c.legacyOwnerId || null, type: c.type, amount: c.amount, note: c.note, created_at: c.created_at }))
+    cash: (cash || []).map(c => ({
+      id: c.legacyId || 0,
+      ownerId: c.legacyOwnerId || null,
+      type: c.type,
+      amount: c.amount,
+      note: c.note,
+      orderId: c.orderId || null,
+      created_at: c.created_at
+    }))
   };
   mapped.lastMenuId = mapped.menus.length ? Math.max(...mapped.menus.map(m => m.id || 0)) : 0;
   mapped.lastOrderId = mapped.orders.length ? Math.max(...mapped.orders.map(o => o.id || 0)) : 0;
@@ -298,7 +306,17 @@ async function writeDB(current) {
   for (const c of current.cash || []) {
     ops.push(mongoModels.Cash.updateOne(
       { legacyId: c.id },
-      { $set: { legacyId: c.id, legacyOwnerId: c.ownerId || null, type: c.type, amount: c.amount, note: c.note || '', created_at: c.created_at ? new Date(c.created_at) : new Date() } },
+      {
+        $set: {
+          legacyId: c.id,
+          legacyOwnerId: c.ownerId || null,
+          type: c.type,
+          amount: c.amount,
+          note: c.note || '',
+          orderId: c.orderId || null,
+          created_at: c.created_at ? new Date(c.created_at) : new Date()
+        }
+      },
       { upsert: true }
     ));
   }
@@ -1457,6 +1475,68 @@ app.get('/b/:slug', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend', file));
 });
 
+function payMethodLabel(method) {
+  if (method === 'transferencia') return 'Transferencia';
+  if (method === 'efectivo') return 'Efectivo';
+  return method || '';
+}
+
+function findCashByOrder(db, ownerId, orderId, type) {
+  return (db.cash || []).find(c =>
+    c.ownerId === ownerId &&
+    Number(c.orderId) === Number(orderId) &&
+    (!type || c.type === type)
+  );
+}
+
+/** Register a sale movement in caja for a new/paid order (idempotent by orderId). */
+function ensureCashSaleForOrder(db, order) {
+  if (!order || !order.ownerId || !order.id) return null;
+  const amount = Number(order.total || 0);
+  if (!(amount > 0)) return null;
+  const existing = findCashByOrder(db, order.ownerId, order.id, 'sale');
+  if (existing) return existing;
+  const pay = payMethodLabel(order.payment_method);
+  const note = [
+    'Pedido #' + order.id,
+    order.customer_name ? String(order.customer_name).slice(0, 60) : null,
+    pay || null
+  ].filter(Boolean).join(' · ');
+  const mv = {
+    id: ++db.lastCashId,
+    ownerId: order.ownerId,
+    type: 'sale',
+    amount,
+    note,
+    orderId: order.id,
+    created_at: new Date().toISOString()
+  };
+  db.cash.push(mv);
+  return mv;
+}
+
+/** Reverse a previous sale in caja when an order is cancelled (idempotent). */
+function ensureCashReversalForOrder(db, order, reason) {
+  if (!order || !order.ownerId || !order.id) return null;
+  const amount = Number(order.total || 0);
+  if (!(amount > 0)) return null;
+  const existingSale = findCashByOrder(db, order.ownerId, order.id, 'sale');
+  if (!existingSale) return null;
+  const existingRev = findCashByOrder(db, order.ownerId, order.id, 'expense');
+  if (existingRev) return existingRev;
+  const mv = {
+    id: ++db.lastCashId,
+    ownerId: order.ownerId,
+    type: 'expense',
+    amount,
+    note: 'Anulación pedido #' + order.id + (reason ? (': ' + String(reason).slice(0, 120)) : ''),
+    orderId: order.id,
+    created_at: new Date().toISOString()
+  };
+  db.cash.push(mv);
+  return mv;
+}
+
 app.post('/api/orders', async (req, res) => {
   const { customer_name, customer_phone, customer_address, customer_notes, items, ownerSlug, payment_method } = req.body || {};
   if (!items || !Array.isArray(items) || !items.length) return res.status(400).json({ error: 'items array required' });
@@ -1523,6 +1603,7 @@ app.post('/api/orders', async (req, res) => {
     created_at: new Date().toISOString()
   };
   db.orders.unshift(order);
+  if (ownerId) ensureCashSaleForOrder(db, order);
   await writeDB(db);
 
   const checkout_url = buildCheckoutUrl(req, order);
@@ -1704,11 +1785,22 @@ app.get('/api/reports', requireNegocio, (req, res) => {
 });
 
 app.post('/api/cash', requireNegocio, async (req, res) => {
-  const { type, amount, note } = req.body || {};
+  let { type, amount, note } = req.body || {};
   if (!type || typeof amount === 'undefined') return res.status(400).json({ error: 'type and amount required' });
+  // Admin UI uses income/egress; normalize to stored types
+  const typeMap = { income: 'in', egress: 'out', in: 'in', out: 'out', sale: 'sale', expense: 'expense' };
+  type = typeMap[String(type)] || String(type);
   if (!['in', 'out', 'sale', 'expense'].includes(type)) return res.status(400).json({ error: 'invalid cash type' });
   db = readDB();
-  const mv = { id: ++db.lastCashId, ownerId: req.user.id, type, amount: Number(amount), note: note || '', created_at: new Date().toISOString() };
+  const mv = {
+    id: ++db.lastCashId,
+    ownerId: req.user.id,
+    type,
+    amount: Number(amount),
+    note: note || '',
+    orderId: null,
+    created_at: new Date().toISOString()
+  };
   db.cash.push(mv);
   await writeDB(db);
   res.json(mv);
@@ -1729,6 +1821,8 @@ app.post('/api/orders/:id/confirm-payment', requireNegocio, async (req, res) => 
   db.orders[orderIdx].status = 'paid';
   db.orders[orderIdx].proof_url = req.body.proof_url || db.orders[orderIdx].proof_url || null;
   db.orders[orderIdx].paid_at = new Date().toISOString();
+  // Backfill caja for older orders that predate auto cash registration
+  ensureCashSaleForOrder(db, db.orders[orderIdx]);
   await writeDB(db);
   const { proof_token, ...safe } = db.orders[orderIdx];
   res.json(safe);
@@ -1797,6 +1891,7 @@ app.post('/api/orders/:id/cancel', requireNegocio, async (req, res) => {
   db.orders[orderIdx].status = 'cancelled';
   db.orders[orderIdx].cancel_reason = reason;
   db.orders[orderIdx].cancelled_at = new Date().toISOString();
+  ensureCashReversalForOrder(db, db.orders[orderIdx], reason);
   await writeDB(db);
   const { proof_token, ...safe } = db.orders[orderIdx];
   res.json(safe);

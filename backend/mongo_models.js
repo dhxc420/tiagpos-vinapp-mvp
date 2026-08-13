@@ -69,6 +69,7 @@ const cashSchema = new mongoose.Schema({
   type: String,
   amount: Number,
   note: String,
+  orderId: Number,
   created_at: Date
 }, { timestamps: true });
 
