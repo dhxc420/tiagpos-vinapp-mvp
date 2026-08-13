@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body class="market-body">
-  <div class="container">
+  <div class="container market-shell">
     <header class="header market-topbar">
       <div class="logo"><div class="brand">WhatsMenú</div></div>
       <div class="market-topbar-actions">
@@ -55,67 +55,90 @@
       </div>
 
       <div class="market-layout">
-        <div class="card market-catalog">
-          <div class="market-toolbar">
-            <h3 style="margin:0">Productos</h3>
-            <input id="marketSearch" type="search" placeholder="Buscar producto..." />
+        <div class="market-catalog">
+          <div class="market-search-wrap">
+            <svg class="market-search-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
+            </svg>
+            <input id="marketSearch" type="search" placeholder="Busca pollo, leche, papel higiénico..." aria-label="Buscar en todas las categorías" />
+          </div>
+
+          <div class="market-cats-head">
+            <span class="market-cats-accent" aria-hidden="true"></span>
+            <h3>Categorías</h3>
           </div>
           <div id="catTabs" class="market-cats" role="tablist"></div>
           <div id="menuList" class="market-grid">Cargando...</div>
         </div>
+
+        <aside id="cartPanel" class="market-cart-panel" aria-labelledby="cartPanelTitle">
+          <div class="market-cart-panel-head">
+            <h3 id="cartPanelTitle">Tu pedido</h3>
+            <button type="button" id="cartPanelClose" class="market-cart-close market-cart-panel-close" aria-label="Cerrar carrito">×</button>
+          </div>
+
+          <div id="cartStepReview">
+            <div id="cartItems" class="market-cart-body">
+              <div class="market-cart-empty">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/>
+                  <path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.4a2 2 0 0 0 2-1.5L21 8H7"/>
+                </svg>
+                <p>Tu carrito está vacío. Explora el catálogo y agrega lo que necesites.</p>
+              </div>
+            </div>
+            <div class="market-cart-summary">
+              <div class="market-cart-sum-row"><span id="cartProductsLabel">Productos (0)</span><span id="cartProductsVal">$0</span></div>
+              <div class="market-cart-sum-row"><span>Domicilio</span><span class="muted">Se confirma con la tienda</span></div>
+              <div class="market-cart-sum-row is-total"><span>Total estimado</span><span id="cartTotalVal">$0</span></div>
+            </div>
+            <button id="confirmOrderBtn" class="btn btn-primary market-confirm-btn" type="button" disabled>
+              Confirmar pedido
+            </button>
+            <p class="small market-cart-note">El pedido queda pendiente para que el personal de la tienda confirme disponibilidad antes de despacharlo.</p>
+          </div>
+
+          <div id="cartStepForm" hidden>
+            <p class="small" style="margin:0 0 12px;color:var(--muted)">Completa tus datos para enviar el pedido por WhatsApp.</p>
+            <label class="login-field" for="custName">
+              <span>Tu nombre</span>
+              <input id="custName" placeholder="Nombre" autocomplete="name" />
+            </label>
+            <label class="login-field" for="custPhone" style="margin-top:10px">
+              <span>Tu WhatsApp <em class="req">*</em></span>
+              <input id="custPhone" placeholder="Ej. 3001234567" inputmode="tel" autocomplete="tel" required />
+            </label>
+            <label class="login-field" for="payMethod" style="margin-top:10px">
+              <span>Método de pago</span>
+              <select id="payMethod">
+                <option value="efectivo">Efectivo</option>
+                <option value="transferencia">Transferencia</option>
+              </select>
+            </label>
+            <label class="login-field" for="custAddress" style="margin-top:10px">
+              <span>Dirección de entrega</span>
+              <input id="custAddress" placeholder="Barrio, calle, número, referencias" autocomplete="street-address" />
+            </label>
+            <label class="login-field" for="custNotes" style="margin-top:10px">
+              <span>Comentarios (opcional)</span>
+              <textarea id="custNotes" rows="2" placeholder="Ej. Pago con $50.000, necesito vuelta"></textarea>
+            </label>
+            <div id="orderMsg" class="small inline-msg" style="display:none;margin-top:10px"></div>
+            <div class="market-cart-form-actions">
+              <button id="backToCartBtn" class="btn btn-ghost" type="button">Volver</button>
+              <button id="waBtn" class="btn btn-primary" type="button">Enviar pedido por WhatsApp</button>
+            </div>
+          </div>
+        </aside>
       </div>
     </main>
   </div>
 
-  <div id="cartModalOverlay" class="modal-overlay" style="display:none">
-    <div class="modal market-cart-modal" role="dialog" aria-modal="true" aria-labelledby="cartModalTitle">
-      <div class="order-detail-head">
-        <div>
-          <h3 id="cartModalTitle">Confirmar pedido</h3>
-          <p class="small" style="margin:4px 0 0;color:var(--muted)">Revisa tu carrito y envía el pedido por WhatsApp</p>
-        </div>
-        <button type="button" id="cartModalCloseX" class="market-cart-close" aria-label="Cerrar">×</button>
-      </div>
-      <div id="cartItems" class="market-cart-body">No hay items en el carrito</div>
-      <div id="checkoutFields" style="display:none;margin-top:12px">
-        <label class="login-field" for="custName">
-          <span>Tu nombre</span>
-          <input id="custName" placeholder="Nombre" autocomplete="name" />
-        </label>
-        <label class="login-field" for="custPhone" style="margin-top:10px">
-          <span>Tu WhatsApp (opcional)</span>
-          <input id="custPhone" placeholder="Ej. 3001234567" inputmode="tel" autocomplete="tel" />
-        </label>
-        <label class="login-field" for="payMethod" style="margin-top:10px">
-          <span>Método de pago</span>
-          <select id="payMethod">
-            <option value="efectivo">Efectivo</option>
-            <option value="transferencia">Transferencia</option>
-          </select>
-        </label>
-        <label class="login-field" for="custAddress" style="margin-top:10px">
-          <span>Dirección de entrega</span>
-          <input id="custAddress" placeholder="Barrio, calle, número, referencias" autocomplete="street-address" />
-        </label>
-        <label class="login-field" for="custNotes" style="margin-top:10px">
-          <span>Comentarios (opcional)</span>
-          <textarea id="custNotes" rows="2" placeholder="Ej. Pago con $50.000, necesito vuelta"></textarea>
-        </label>
-      </div>
-      <div class="market-cart-footer">
-        <div id="cartTotal" class="market-cart-total"></div>
-        <div id="orderMsg" class="small inline-msg" style="display:none;margin-top:8px"></div>
-        <div class="modal-actions" style="margin-top:12px">
-          <button id="cartModalClose" class="btn btn-ghost" type="button">Seguir comprando</button>
-          <button id="waBtn" class="btn btn-primary" style="display:none" type="button">Enviar pedido por WhatsApp</button>
-        </div>
-      </div>
-    </div>
-  </div>
+  <div id="cartDrawerBackdrop" class="market-cart-backdrop" hidden></div>
 
   <script>
     function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-    function fmtMoney(n){ return '$' + Number(n).toLocaleString('es-CO'); }
+    function fmtMoney(n){ return '$' + Number(n||0).toLocaleString('es-CO'); }
     function normalizeWaPhone(raw){
       if(!raw) return '';
       let d = String(raw).replace(/\D/g, '');
@@ -133,6 +156,46 @@
       return url;
     }
 
+    function isMeatCategory(cat){
+      const c = String(cat || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return c.includes('carnic') || c === 'carne' || c.includes('carne ');
+    }
+
+    const CAT_ICONS = {
+      all: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
+      carniceria: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 4c2 1 4 3.5 4 7 0 4-2.5 7-5.5 9"/><path d="M9.5 20C6.5 18 4 15 4 11c0-3.5 2-6 4-7"/><path d="M8 10c1.5 2 4.5 4 8 4"/><circle cx="10" cy="8" r="1"/></svg>',
+      legumbreria: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="13" r="6"/><path d="M12 7V4M10 4h4"/><path d="M9 13c1 1.5 2 2 3 2s2-.5 3-2"/></svg>',
+      frutas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="13" r="6"/><path d="M12 7c1-2 3-3 3-3s0 2-1 3"/><path d="M10 10c.5-1 1.5-2 2-2"/></svg>',
+      lacteos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 7h8l1 3v9a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V10l1-3z"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M8 10h8"/></svg>',
+      comestibles: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="12" rx="7" ry="4"/><path d="M5 12c0 4 3 7 7 7s7-3 7-7"/><path d="M9 10c.5-2 1.5-3 3-3s2.5 1 3 3"/></svg>',
+      granos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20c-4-2-6-5-6-9 2 0 4 1 6 3 2-2 4-3 6-3 0 4-2 7-6 9z"/><path d="M12 11V4"/></svg>',
+      bebidas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3h8l-1 4H9L8 3z"/><path d="M9 7h6l1 12a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2l1-12z"/></svg>',
+      aseo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 4h6v3H9z"/><path d="M10 7h4l1 13H9L10 7z"/><path d="M12 10v6"/><path d="M14 4c1.5.5 2.5 1.5 3 3"/></svg>',
+      panaderia: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 14c0-4 3.5-7 8-7s8 3 8 7c0 2-1.5 4-4 4H8c-2.5 0-4-2-4-4z"/><path d="M8 12h.01M12 11h.01M16 12h.01"/></svg>',
+      snacks: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 8c0-2 2-4 5-4s5 2 5 4v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V8z"/><path d="M7 10h10"/></svg>',
+      default: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16v12H4z"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></svg>'
+    };
+
+    function catIconKey(label){
+      const c = String(label || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      if(c === 'all' || c === 'todos' || c === 'todo') return 'all';
+      if(c.includes('carnic') || c.includes('carne')) return 'carniceria';
+      if(c.includes('legumbr') || c.includes('verdura')) return 'legumbreria';
+      if(c.includes('fruta')) return 'frutas';
+      if(c.includes('lact') || c.includes('huevo')) return 'lacteos';
+      if(c.includes('grano') || c.includes('abarro')) return 'granos';
+      if(c.includes('comest') || c.includes('despensa')) return 'comestibles';
+      if(c.includes('bebida') || c.includes('jugo') || c.includes('refresco')) return 'bebidas';
+      if(c.includes('aseo') || c.includes('limpieza') || c.includes('hogar')) return 'aseo';
+      if(c.includes('panad') || c.includes('pan ')) return 'panaderia';
+      if(c.includes('snack') || c.includes('dulce') || c.includes('pasaboca')) return 'snacks';
+      return 'default';
+    }
+
+    function catIconSvg(label){
+      return CAT_ICONS[catIconKey(label)] || CAT_ICONS.default;
+    }
+
     const pathParts = window.location.pathname.split('/').filter(Boolean);
     const slug = (pathParts.length >= 2 && pathParts[0] === 'b') ? pathParts[1] : pathParts[0] || '';
 
@@ -142,6 +205,7 @@
     let SENDING = false;
     let IS_OPEN = true;
     let ACTIVE_CAT = 'all';
+    let CART_STEP = 'review';
 
     function businessIsOpen(b){
       if(!b) return true;
@@ -231,7 +295,8 @@
       try{
         const res = await fetch('/api/menu?ownerSlug=' + encodeURIComponent(slug));
         if(!res.ok){ document.getElementById('menuList').innerText = 'Error cargando productos'; return }
-        MENU = (await res.json()).filter(m => m.available !== false);
+        // Keep unavailable meat items so we can show Disponible / No disponible
+        MENU = await res.json();
         renderCats();
         renderMenu();
         renderCart();
@@ -241,9 +306,12 @@
     function renderCats(){
       const cats = categories();
       const el = document.getElementById('catTabs');
-      const tabs = [{ id: 'all', label: 'Todos' }].concat(cats.map(c => ({ id: c, label: c })));
+      const tabs = [{ id: 'all', label: 'Todo' }].concat(cats.map(c => ({ id: c, label: c })));
       el.innerHTML = tabs.map(t =>
-        `<button type="button" class="market-cat${ACTIVE_CAT===t.id?' is-active':''}" data-cat="${esc(t.id)}">${esc(t.label)}</button>`
+        `<button type="button" class="market-cat${ACTIVE_CAT===t.id?' is-active':''}" data-cat="${esc(t.id)}" role="tab" aria-selected="${ACTIVE_CAT===t.id}">
+          <span class="market-cat-icon" aria-hidden="true">${catIconSvg(t.id === 'all' ? 'all' : t.label)}</span>
+          <span class="market-cat-label">${esc(t.label)}</span>
+        </button>`
       ).join('');
       el.querySelectorAll('[data-cat]').forEach(b => b.addEventListener('click', ()=>{
         ACTIVE_CAT = b.getAttribute('data-cat');
@@ -255,15 +323,25 @@
     function filteredMenu(){
       const q = (document.getElementById('marketSearch').value || '').trim().toLowerCase();
       return MENU.filter(m => {
+        const meat = isMeatCategory(m.category);
+        // Non-meat: hide unavailable; meat: show both for status
+        if(!meat && m.available === false) return false;
+        // Global search across all categories when typing
+        if(q){
+          return (m.name || '').toLowerCase().includes(q)
+            || (m.description || '').toLowerCase().includes(q)
+            || (m.category || '').toLowerCase().includes(q);
+        }
         if(ACTIVE_CAT !== 'all' && (m.category || '') !== ACTIVE_CAT) return false;
-        if(!q) return true;
-        return (m.name || '').toLowerCase().includes(q) || (m.description || '').toLowerCase().includes(q);
+        return true;
       });
     }
 
-    function stockLabel(m){
-      if(typeof m.stock !== 'number') return '';
-      return m.stock + (m.unit ? ' ' + m.unit : '') + ' disp.';
+    function productImageHtml(m){
+      if(m.image){
+        return `<div class="market-card-media"><img src="${esc(m.image)}" alt="${esc(m.name)}" loading="lazy" /></div>`;
+      }
+      return `<div class="market-card-media is-placeholder" aria-hidden="true">${catIconSvg(m.category || 'default')}</div>`;
     }
 
     function renderMenu(){
@@ -274,41 +352,52 @@
         return;
       }
       if(!list.length){
-        el.innerHTML = '<div class="small">No hay productos en esta categoría.</div>';
+        el.innerHTML = '<div class="small">No hay productos' + ((document.getElementById('marketSearch').value || '').trim() ? ' para esa búsqueda.' : ' en esta categoría.') + '</div>';
         return;
       }
       el.innerHTML = list.map(m => {
-        const max = typeof m.stock === 'number' ? Math.max(1, m.stock) : 99;
+        const meat = isMeatCategory(m.category);
         const out = typeof m.stock === 'number' && m.stock <= 0;
-        return `<article class="market-card" data-id="${Number(m.id)}">
-          <div class="market-card-top">
-            <strong>${esc(m.name)}</strong>
-            ${m.category ? `<span class="market-chip">${esc(m.category)}</span>` : ''}
+        const available = m.available !== false && !out;
+        const unitLabel = m.unit ? ('Por ' + m.unit) : '';
+
+        let actions = '';
+        if(meat){
+          actions = `<div class="market-card-status ${available ? 'is-ok' : 'is-bad'}">${available ? 'Disponible' : 'No disponible'}</div>`;
+        } else {
+          const max = typeof m.stock === 'number' ? Math.max(1, m.stock) : 99;
+          actions = `<div class="market-card-actions">
+            <div class="market-card-price">${fmtMoney(m.price)}</div>
+            ${IS_OPEN && available
+              ? `<button class="market-add-btn" type="button" data-id="${Number(m.id)}" aria-label="Agregar ${esc(m.name)}">+</button>`
+              : `<button class="market-add-btn" type="button" disabled aria-label="No disponible">+</button>`}
           </div>
-          ${m.description ? `<p class="small market-desc">${esc(m.description)}</p>` : ''}
-          <div class="market-card-meta">
-            <div class="menu-price">${fmtMoney(m.price)}${m.unit ? ' <span class="small">/ '+esc(m.unit)+'</span>' : ''}</div>
-            <div class="small">${esc(stockLabel(m))}</div>
-          </div>
-          <div class="market-qty-row">
-            <label class="small">Cantidad
-              <input type="number" class="qty-input" min="1" max="${max}" value="1" ${(!IS_OPEN||out)?'disabled':''} />
-            </label>
-            ${IS_OPEN && !out
-              ? `<button class="add-btn" type="button" data-id="${Number(m.id)}">Agregar</button>`
-              : `<button class="add-btn" type="button" disabled style="opacity:.5">${out?'Sin stock':'Cerrado'}</button>`}
+          <input type="hidden" class="qty-input" value="1" max="${max}" />`;
+        }
+
+        return `<article class="market-card${meat ? ' is-meat' : ''}${!available ? ' is-unavailable' : ''}" data-id="${Number(m.id)}">
+          <div class="market-card-price-tag">${fmtMoney(m.price)}</div>
+          ${productImageHtml(m)}
+          <div class="market-card-body">
+            <strong class="market-card-name">${esc(m.name)}</strong>
+            ${unitLabel ? `<span class="market-card-unit">${esc(unitLabel)}</span>` : ''}
+            ${m.description && !meat ? `<p class="small market-desc">${esc(m.description)}</p>` : ''}
+            ${actions}
           </div>
         </article>`;
       }).join('');
 
-      el.querySelectorAll('.add-btn[data-id]').forEach(b => b.addEventListener('click', ()=>{
+      el.querySelectorAll('.market-add-btn[data-id]').forEach(b => b.addEventListener('click', ()=>{
         const id = Number(b.getAttribute('data-id'));
         const item = MENU.find(x => x.id === id);
-        if(!item) return;
-        const card = b.closest('.market-card');
-        const input = card && card.querySelector('.qty-input');
-        let qty = Math.max(1, Number(input && input.value || 1));
+        if(!item || isMeatCategory(item.category)) return;
+        if(item.available === false) return;
+        let qty = 1;
         if(typeof item.stock === 'number') qty = Math.min(qty, item.stock);
+        if(typeof item.stock === 'number' && item.stock <= 0){
+          alert('Sin stock de ' + item.name);
+          return;
+        }
         const existing = CART.find(c => c.id === id);
         const nextQty = (existing ? existing.qty : 0) + qty;
         if(typeof item.stock === 'number' && nextQty > item.stock){
@@ -316,13 +405,19 @@
           return;
         }
         if(existing) existing.qty = nextQty;
-        else CART.push({ id: item.id, name: item.name, price: item.price, qty });
+        else CART.push({ id: item.id, name: item.name, price: item.price, qty, image: item.image || null });
+        CART_STEP = 'review';
         renderCart();
+        if(window.matchMedia('(max-width: 960px)').matches) openCartDrawer();
       }));
     }
 
     function cartCount(){
       return CART.reduce((s,c)=> s + (c.qty || 0), 0);
+    }
+
+    function cartSubtotal(){
+      return CART.reduce((s,i)=> s + i.qty * i.price, 0);
     }
 
     function updateCartBadge(){
@@ -341,38 +436,73 @@
       }
     }
 
-    function openCartModal(){
-      const ov = document.getElementById('cartModalOverlay');
-      if(ov) ov.style.display = 'flex';
-      renderCart();
+    function setCartStep(step){
+      CART_STEP = step;
+      const review = document.getElementById('cartStepReview');
+      const form = document.getElementById('cartStepForm');
+      if(review) review.hidden = step !== 'review';
+      if(form) form.hidden = step !== 'form';
+      const title = document.getElementById('cartPanelTitle');
+      if(title) title.textContent = step === 'form' ? 'Datos del cliente' : 'Tu pedido';
     }
 
-    function closeCartModal(){
-      const ov = document.getElementById('cartModalOverlay');
-      if(ov) ov.style.display = 'none';
+    function openCartDrawer(){
+      document.body.classList.add('market-cart-open');
+      const backdrop = document.getElementById('cartDrawerBackdrop');
+      if(backdrop) backdrop.hidden = false;
+    }
+
+    function closeCartDrawer(){
+      document.body.classList.remove('market-cart-open');
+      const backdrop = document.getElementById('cartDrawerBackdrop');
+      if(backdrop) backdrop.hidden = true;
+      setCartStep('review');
     }
 
     function renderCart(){
       const el = document.getElementById('cartItems');
-      const fields = document.getElementById('checkoutFields');
+      const confirmBtn = document.getElementById('confirmOrderBtn');
       const wa = document.getElementById('waBtn');
       updateCartBadge();
+
+      const subtotal = cartSubtotal();
+      const count = cartCount();
+      document.getElementById('cartProductsLabel').textContent = 'Productos (' + count + ')';
+      document.getElementById('cartProductsVal').textContent = fmtMoney(subtotal);
+      document.getElementById('cartTotalVal').textContent = fmtMoney(subtotal);
+
       if(!IS_OPEN){
-        el.innerHTML = '<div class="small">El negocio no está disponible para pedidos.</div>';
-        document.getElementById('cartTotal').innerText = '';
-        wa.style.display='none'; fields.style.display='none';
+        el.innerHTML = '<div class="market-cart-empty"><p>El negocio no está disponible para pedidos.</p></div>';
+        confirmBtn.disabled = true;
+        setCartStep('review');
         return;
       }
       if(!CART.length){
-        el.innerHTML = '<div class="small">No hay items en el carrito</div>';
-        document.getElementById('cartTotal').innerText = '';
-        wa.style.display='none'; fields.style.display='none';
+        el.innerHTML = `<div class="market-cart-empty">
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/>
+            <path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.4a2 2 0 0 0 2-1.5L21 8H7"/>
+          </svg>
+          <p>Tu carrito está vacío. Explora el catálogo y agrega lo que necesites.</p>
+        </div>`;
+        confirmBtn.disabled = true;
+        setCartStep('review');
         return;
       }
+
       el.innerHTML = '<ul class="market-cart-list">' + CART.map(c =>
-        `<li><span>${esc(c.name)} × ${esc(c.qty)}</span><span>${fmtMoney(c.price * c.qty)}
-          <button data-id="${Number(c.id)}" class="btn btn-ghost" type="button" style="margin-left:6px" aria-label="Quitar">−</button></span></li>`
+        `<li>
+          <div class="market-cart-line">
+            <strong>${esc(c.name)}</strong>
+            <span class="small">${esc(c.qty)} × ${fmtMoney(c.price)}</span>
+          </div>
+          <div class="market-cart-line-right">
+            <span>${fmtMoney(c.price * c.qty)}</span>
+            <button data-id="${Number(c.id)}" class="market-cart-minus" type="button" aria-label="Quitar">−</button>
+          </div>
+        </li>`
       ).join('') + '</ul>';
+
       el.querySelectorAll('button[data-id]').forEach(b => b.addEventListener('click', ()=>{
         const id = Number(b.getAttribute('data-id'));
         const idx = CART.findIndex(x => x.id === id);
@@ -381,12 +511,14 @@
         if(CART[idx].qty <= 0) CART.splice(idx, 1);
         renderCart();
       }));
-      const total = CART.reduce((s,i)=> s + i.qty * i.price, 0);
-      document.getElementById('cartTotal').innerText = 'Total: ' + fmtMoney(total);
-      fields.style.display='block';
-      wa.style.display='inline-flex';
-      wa.disabled = SENDING;
-      wa.textContent = SENDING ? 'Enviando...' : 'Enviar pedido por WhatsApp';
+
+      confirmBtn.disabled = false;
+      if(wa){
+        wa.disabled = SENDING;
+        wa.textContent = SENDING ? 'Enviando...' : 'Enviar pedido por WhatsApp';
+      }
+      if(CART_STEP === 'form') setCartStep('form');
+      else setCartStep('review');
     }
 
     async function resolveStorePhone(){
@@ -435,6 +567,12 @@
         msgEl.className='small inline-msg error'; msgEl.style.display='block';
         return;
       }
+      if(!customerPhone || !normalizeWaPhone(customerPhone)){
+        msgEl.textContent = 'Tu WhatsApp es obligatorio';
+        msgEl.className='small inline-msg error'; msgEl.style.display='block';
+        document.getElementById('custPhone').focus();
+        return;
+      }
       if(!customerAddress){
         msgEl.textContent = 'Indica la dirección de entrega';
         msgEl.className='small inline-msg error'; msgEl.style.display='block';
@@ -458,7 +596,7 @@
           headers: {'content-type':'application/json'},
           body: JSON.stringify({
             customer_name: customer,
-            customer_phone: customerPhone || null,
+            customer_phone: customerPhone,
             customer_address: customerAddress,
             customer_notes: customerNotes || null,
             payment_method: paymentMethod,
@@ -480,6 +618,7 @@
         document.getElementById('custAddress').value = '';
         document.getElementById('custNotes').value = '';
         const payEl = document.getElementById('payMethod'); if(payEl) payEl.value = 'efectivo';
+        setCartStep('review');
         await loadMenu();
       }catch(e){
         msgEl.textContent = 'No se pudo enviar: ' + e.message;
@@ -490,16 +629,30 @@
       }
     }
 
-    document.getElementById('marketSearch').addEventListener('input', renderMenu);
-    document.getElementById('cartFab').addEventListener('click', openCartModal);
-    document.getElementById('cartModalClose').addEventListener('click', closeCartModal);
-    document.getElementById('cartModalCloseX').addEventListener('click', closeCartModal);
-    document.getElementById('cartModalOverlay').addEventListener('click', (e)=>{
-      if(e.target && e.target.id === 'cartModalOverlay') closeCartModal();
+    document.getElementById('marketSearch').addEventListener('input', ()=>{
+      // Global search: when typing, show matches from all categories
+      renderMenu();
+    });
+    document.getElementById('cartFab').addEventListener('click', ()=>{
+      openCartDrawer();
+      renderCart();
+    });
+    document.getElementById('cartPanelClose').addEventListener('click', closeCartDrawer);
+    document.getElementById('cartDrawerBackdrop').addEventListener('click', closeCartDrawer);
+    document.getElementById('confirmOrderBtn').addEventListener('click', ()=>{
+      if(!CART.length || !IS_OPEN) return;
+      setCartStep('form');
+      openCartDrawer();
+      setTimeout(()=> document.getElementById('custPhone').focus(), 50);
+    });
+    document.getElementById('backToCartBtn').addEventListener('click', ()=>{
+      const msgEl = document.getElementById('orderMsg');
+      if(msgEl){ msgEl.style.display='none'; msgEl.textContent=''; }
+      setCartStep('review');
     });
     document.getElementById('waBtn').addEventListener('click', ()=> sendOrderToStoreWhatsApp());
     window.addEventListener('keydown', (e)=>{
-      if(e.key === 'Escape') closeCartModal();
+      if(e.key === 'Escape') closeCartDrawer();
     });
     if(!slug) document.getElementById('menuList').innerText = 'Negocio no especificado';
     else loadBusiness();

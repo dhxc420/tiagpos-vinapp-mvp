@@ -26,7 +26,8 @@ const menuSchema = new mongoose.Schema({
   stock: Number,
   category: String,
   unit: String,
-  available: Boolean
+  available: Boolean,
+  image: String
 }, { timestamps: true });
 
 const orderSchema = new mongoose.Schema({
