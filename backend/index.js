@@ -429,41 +429,41 @@ async function ensureMercaMono() {
     'Aseo'
   ];
   const seedProducts = [
-    { name: 'Carne de res molida', description: 'Paquete fresco 500g', price: 12500, stock: 40, category: 'Carnicería', unit: 'paq' },
-    { name: 'Pollo entero', description: 'Pollo fresco aprox 1.2kg', price: 18000, stock: 25, category: 'Carnicería', unit: 'und' },
-    { name: 'Costilla de cerdo', description: 'Por kilo', price: 16000, stock: 30, category: 'Carnicería', unit: 'kg' },
-    { name: 'Pechuga de pollo', description: 'Filete fresco por kilo', price: 14500, stock: 35, category: 'Carnicería', unit: 'kg' },
-    { name: 'Carne de cerdo para guiso', description: 'Cortada en trozos', price: 13200, stock: 28, category: 'Carnicería', unit: 'kg' },
-    { name: 'Chorizo antioqueño', description: 'Paquete x4', price: 8900, stock: 40, category: 'Carnicería', unit: 'paq' },
-    { name: 'Tomate chonto', description: 'Fresco de la huerta', price: 3500, stock: 80, category: 'Legumbrería', unit: 'lb' },
-    { name: 'Cebolla cabezona', description: 'Blanca', price: 2800, stock: 70, category: 'Legumbrería', unit: 'lb' },
-    { name: 'Plátano verde', description: 'Unidad', price: 800, stock: 120, category: 'Legumbrería', unit: 'und' },
-    { name: 'Papa criolla', description: 'Libra', price: 3200, stock: 90, category: 'Legumbrería', unit: 'lb' },
-    { name: 'Zanahoria', description: 'Fresco', price: 2500, stock: 75, category: 'Legumbrería', unit: 'lb' },
-    { name: 'Aguacate hass', description: 'Unidad madura', price: 3500, stock: 50, category: 'Legumbrería', unit: 'und' },
-    { name: 'Limón tahití', description: 'Libra', price: 2200, stock: 60, category: 'Legumbrería', unit: 'lb' },
-    { name: 'Arroz 1kg', description: 'Arroz blanco', price: 4500, stock: 60, category: 'Comestibles', unit: 'paq' },
-    { name: 'Aceite 1L', description: 'Aceite vegetal', price: 9800, stock: 45, category: 'Comestibles', unit: 'und' },
-    { name: 'Huevos x12', description: 'Cartón de 12', price: 7200, stock: 50, category: 'Comestibles', unit: 'cartón' },
-    { name: 'Pasta spaghetti 500g', description: 'Paquete', price: 3900, stock: 55, category: 'Comestibles', unit: 'paq' },
-    { name: 'Frijol cargamanto 500g', description: 'Seco', price: 5200, stock: 40, category: 'Comestibles', unit: 'paq' },
-    { name: 'Azúcar 1kg', description: 'Blanca', price: 4100, stock: 48, category: 'Comestibles', unit: 'paq' },
-    { name: 'Sal refinada 1kg', description: 'Paquete', price: 1800, stock: 70, category: 'Comestibles', unit: 'paq' },
-    { name: 'Leche entera 1L', description: 'Bolsa o caja', price: 4200, stock: 55, category: 'Lácteos', unit: 'und' },
-    { name: 'Queso campesino', description: 'Bloque aprox 500g', price: 9800, stock: 30, category: 'Lácteos', unit: 'und' },
-    { name: 'Yogurt natural', description: 'Vaso 150g', price: 2200, stock: 60, category: 'Lácteos', unit: 'und' },
-    { name: 'Mantequilla 250g', description: 'Con sal', price: 6500, stock: 35, category: 'Lácteos', unit: 'und' },
-    { name: 'Agua 600ml', description: 'Botella', price: 1500, stock: 100, category: 'Bebidas', unit: 'und' },
-    { name: 'Gaseosa 1.5L', description: 'Surtida', price: 4500, stock: 48, category: 'Bebidas', unit: 'und' },
-    { name: 'Jugo hit 1L', description: 'Sabor surtido', price: 3800, stock: 40, category: 'Bebidas', unit: 'und' },
-    { name: 'Café molido 250g', description: 'Tostado', price: 8900, stock: 32, category: 'Bebidas', unit: 'paq' },
-    { name: 'Pan tajado', description: 'Bolsa familiar', price: 5200, stock: 28, category: 'Panadería', unit: 'und' },
-    { name: 'Arepa de maíz', description: 'Paquete x5', price: 3500, stock: 40, category: 'Panadería', unit: 'paq' },
-    { name: 'Galletas soda', description: 'Paquete', price: 2800, stock: 45, category: 'Panadería', unit: 'paq' },
-    { name: 'Jabón de barra', description: 'Aseo general', price: 3200, stock: 50, category: 'Aseo', unit: 'und' },
-    { name: 'Detergente 500g', description: 'En polvo', price: 5800, stock: 36, category: 'Aseo', unit: 'paq' },
-    { name: 'Papel higiénico x4', description: 'Paquete', price: 7900, stock: 42, category: 'Aseo', unit: 'paq' },
-    { name: 'Esponja multiusos', description: 'Unidad', price: 1800, stock: 55, category: 'Aseo', unit: 'und' }
+    { name: 'Carne de res molida', description: 'Paquete fresco 500g', price: 12500, stock: 40, category: 'Carnicería', unit: 'paq', image: '/products/carne-res-molida.jpg' },
+    { name: 'Pollo entero', description: 'Pollo fresco aprox 1.2kg', price: 18000, stock: 25, category: 'Carnicería', unit: 'und', image: '/products/pollo-entero.jpg' },
+    { name: 'Costilla de cerdo', description: 'Por kilo', price: 16000, stock: 30, category: 'Carnicería', unit: 'kg', image: '/products/costilla-cerdo.jpg' },
+    { name: 'Pechuga de pollo', description: 'Filete fresco por kilo', price: 14500, stock: 35, category: 'Carnicería', unit: 'kg', image: '/products/pechuga-pollo.jpg' },
+    { name: 'Carne de cerdo para guiso', description: 'Cortada en trozos', price: 13200, stock: 28, category: 'Carnicería', unit: 'kg', image: '/products/carne-cerdo-guiso.jpg' },
+    { name: 'Chorizo antioqueño', description: 'Paquete x4', price: 8900, stock: 40, category: 'Carnicería', unit: 'paq', image: '/products/chorizo.jpg' },
+    { name: 'Tomate chonto', description: 'Fresco de la huerta', price: 3500, stock: 80, category: 'Legumbrería', unit: 'lb', image: '/products/tomate.jpg' },
+    { name: 'Cebolla cabezona', description: 'Blanca', price: 2800, stock: 70, category: 'Legumbrería', unit: 'lb', image: '/products/cebolla.jpg' },
+    { name: 'Plátano verde', description: 'Unidad', price: 800, stock: 120, category: 'Legumbrería', unit: 'und', image: '/products/platano.jpg' },
+    { name: 'Papa criolla', description: 'Libra', price: 3200, stock: 90, category: 'Legumbrería', unit: 'lb', image: '/products/papa.jpg' },
+    { name: 'Zanahoria', description: 'Fresco', price: 2500, stock: 75, category: 'Legumbrería', unit: 'lb', image: '/products/zanahoria.jpg' },
+    { name: 'Aguacate hass', description: 'Unidad madura', price: 3500, stock: 50, category: 'Legumbrería', unit: 'und', image: '/products/aguacate.jpg' },
+    { name: 'Limón tahití', description: 'Libra', price: 2200, stock: 60, category: 'Legumbrería', unit: 'lb', image: '/products/limon.jpg' },
+    { name: 'Arroz 1kg', description: 'Arroz blanco', price: 4500, stock: 60, category: 'Comestibles', unit: 'paq', image: '/products/arroz.jpg' },
+    { name: 'Aceite 1L', description: 'Aceite vegetal', price: 9800, stock: 45, category: 'Comestibles', unit: 'und', image: '/products/aceite.jpg' },
+    { name: 'Huevos x12', description: 'Cartón de 12', price: 7200, stock: 50, category: 'Comestibles', unit: 'cartón', image: '/products/huevos.jpg' },
+    { name: 'Pasta spaghetti 500g', description: 'Paquete', price: 3900, stock: 55, category: 'Comestibles', unit: 'paq', image: '/products/pasta.jpg' },
+    { name: 'Frijol cargamanto 500g', description: 'Seco', price: 5200, stock: 40, category: 'Comestibles', unit: 'paq', image: '/products/frijol.jpg' },
+    { name: 'Azúcar 1kg', description: 'Blanca', price: 4100, stock: 48, category: 'Comestibles', unit: 'paq', image: '/products/azucar.jpg' },
+    { name: 'Sal refinada 1kg', description: 'Paquete', price: 1800, stock: 70, category: 'Comestibles', unit: 'paq', image: '/products/sal.jpg' },
+    { name: 'Leche entera 1L', description: 'Bolsa o caja', price: 4200, stock: 55, category: 'Lácteos', unit: 'und', image: '/products/leche.jpg' },
+    { name: 'Queso campesino', description: 'Bloque aprox 500g', price: 9800, stock: 30, category: 'Lácteos', unit: 'und', image: '/products/queso.jpg' },
+    { name: 'Yogurt natural', description: 'Vaso 150g', price: 2200, stock: 60, category: 'Lácteos', unit: 'und', image: '/products/yogurt.jpg' },
+    { name: 'Mantequilla 250g', description: 'Con sal', price: 6500, stock: 35, category: 'Lácteos', unit: 'und', image: '/products/mantequilla.jpg' },
+    { name: 'Agua 600ml', description: 'Botella', price: 1500, stock: 100, category: 'Bebidas', unit: 'und', image: '/products/agua.jpg' },
+    { name: 'Gaseosa 1.5L', description: 'Surtida', price: 4500, stock: 48, category: 'Bebidas', unit: 'und', image: '/products/gaseosa.jpg' },
+    { name: 'Jugo hit 1L', description: 'Sabor surtido', price: 3800, stock: 40, category: 'Bebidas', unit: 'und', image: '/products/jugo.jpg' },
+    { name: 'Café molido 250g', description: 'Tostado', price: 8900, stock: 32, category: 'Bebidas', unit: 'paq', image: '/products/cafe.jpg' },
+    { name: 'Pan tajado', description: 'Bolsa familiar', price: 5200, stock: 28, category: 'Panadería', unit: 'und', image: '/products/pan.jpg' },
+    { name: 'Arepa de maíz', description: 'Paquete x5', price: 3500, stock: 40, category: 'Panadería', unit: 'paq', image: '/products/arepa.jpg' },
+    { name: 'Galletas soda', description: 'Paquete', price: 2800, stock: 45, category: 'Panadería', unit: 'paq', image: '/products/galletas.jpg' },
+    { name: 'Jabón de barra', description: 'Aseo general', price: 3200, stock: 50, category: 'Aseo', unit: 'und', image: '/products/jabon.jpg' },
+    { name: 'Detergente 500g', description: 'En polvo', price: 5800, stock: 36, category: 'Aseo', unit: 'paq', image: '/products/detergente.jpg' },
+    { name: 'Papel higiénico x4', description: 'Paquete', price: 7900, stock: 42, category: 'Aseo', unit: 'paq', image: '/products/papel-higienico.jpg' },
+    { name: 'Esponja multiusos', description: 'Unidad', price: 1800, stock: 55, category: 'Aseo', unit: 'und', image: '/products/esponja.jpg' }
   ];
   let user = db.users.find(u => u.username === USER || (u.business && u.business.slug === 'mercamono'));
   let changed = false;
@@ -516,7 +516,9 @@ async function ensureMercaMono() {
 
   const owned = db.menus.filter(m => m.ownerId === user.id);
   const ownedNames = new Set(owned.map(m => String(m.name || '').trim().toLowerCase()));
+  const seedByName = new Map(seedProducts.map(p => [String(p.name).trim().toLowerCase(), p]));
   const seededMenus = [];
+  const updatedMenus = [];
   for (const p of seedProducts) {
     const key = String(p.name).trim().toLowerCase();
     if (ownedNames.has(key)) continue;
@@ -529,14 +531,26 @@ async function ensureMercaMono() {
       stock: p.stock,
       category: p.category,
       unit: p.unit,
-      available: true
+      available: true,
+      image: p.image || null
     };
     db.menus.push(row);
     seededMenus.push(row);
     ownedNames.add(key);
     changed = true;
   }
+  // Backfill catalog images for existing seed products without image
+  for (const m of db.menus) {
+    if (m.ownerId !== user.id) continue;
+    const seed = seedByName.get(String(m.name || '').trim().toLowerCase());
+    if (!seed || !seed.image) continue;
+    if (m.image) continue;
+    m.image = seed.image;
+    updatedMenus.push(m);
+    changed = true;
+  }
   if (seededMenus.length) console.log('Merca Mono catalog +' + seededMenus.length + ' products');
+  if (updatedMenus.length) console.log('Merca Mono catalog images +' + updatedMenus.length);
 
   if (!changed) return;
 
@@ -557,7 +571,7 @@ async function ensureMercaMono() {
         },
         { upsert: true }
       );
-      for (const m of seededMenus) {
+      for (const m of seededMenus.concat(updatedMenus)) {
         await mongoModels.Menu.updateOne(
           { legacyId: m.id },
           {
@@ -570,7 +584,8 @@ async function ensureMercaMono() {
               stock: m.stock,
               category: m.category || '',
               unit: m.unit || '',
-              available: true
+              available: m.available !== false,
+              image: m.image || null
             }
           },
           { upsert: true }
