@@ -156,11 +156,6 @@
       return url;
     }
 
-    function isMeatCategory(cat){
-      const c = String(cat || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      return c.includes('carnic') || c === 'carne' || c.includes('carne ');
-    }
-
     const CAT_ICONS = {
       all: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
       carniceria: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 4c2 1 4 3.5 4 7 0 4-2.5 7-5.5 9"/><path d="M9.5 20C6.5 18 4 15 4 11c0-3.5 2-6 4-7"/><path d="M8 10c1.5 2 4.5 4 8 4"/><circle cx="10" cy="8" r="1"/></svg>',
@@ -323,9 +318,6 @@
     function filteredMenu(){
       const q = (document.getElementById('marketSearch').value || '').trim().toLowerCase();
       return MENU.filter(m => {
-        const meat = isMeatCategory(m.category);
-        // Non-meat: hide unavailable; meat: show both for status
-        if(!meat && m.available === false) return false;
         // Global search across all categories when typing
         if(q){
           return (m.name || '').toLowerCase().includes(q)
@@ -356,32 +348,28 @@
         return;
       }
       el.innerHTML = list.map(m => {
-        const meat = isMeatCategory(m.category);
         const out = typeof m.stock === 'number' && m.stock <= 0;
         const available = m.available !== false && !out;
         const unitLabel = m.unit ? ('Por ' + m.unit) : '';
+        const max = typeof m.stock === 'number' ? Math.max(1, m.stock) : 99;
 
-        let actions = '';
-        if(meat){
-          actions = `<div class="market-card-status ${available ? 'is-ok' : 'is-bad'}">${available ? 'Disponible' : 'No disponible'}</div>`;
-        } else {
-          const max = typeof m.stock === 'number' ? Math.max(1, m.stock) : 99;
-          actions = `<div class="market-card-actions">
-            <div class="market-card-price">${fmtMoney(m.price)}</div>
-            ${IS_OPEN && available
-              ? `<button class="market-add-btn" type="button" data-id="${Number(m.id)}" aria-label="Agregar ${esc(m.name)}">+</button>`
-              : `<button class="market-add-btn" type="button" disabled aria-label="No disponible">+</button>`}
-          </div>
-          <input type="hidden" class="qty-input" value="1" max="${max}" />`;
-        }
+        const actions = available
+          ? `<div class="market-card-actions">
+              <div class="market-card-price">${fmtMoney(m.price)}</div>
+              ${IS_OPEN
+                ? `<button class="market-add-btn" type="button" data-id="${Number(m.id)}" aria-label="Agregar ${esc(m.name)}">+</button>`
+                : `<button class="market-add-btn" type="button" disabled aria-label="Cerrado">+</button>`}
+            </div>
+            <input type="hidden" class="qty-input" value="1" max="${max}" />`
+          : `<div class="market-card-status is-bad">No disponible</div>`;
 
-        return `<article class="market-card${meat ? ' is-meat' : ''}${!available ? ' is-unavailable' : ''}" data-id="${Number(m.id)}">
+        return `<article class="market-card${!available ? ' is-unavailable' : ''}" data-id="${Number(m.id)}">
           <div class="market-card-price-tag">${fmtMoney(m.price)}</div>
           ${productImageHtml(m)}
           <div class="market-card-body">
             <strong class="market-card-name">${esc(m.name)}</strong>
             ${unitLabel ? `<span class="market-card-unit">${esc(unitLabel)}</span>` : ''}
-            ${m.description && !meat ? `<p class="small market-desc">${esc(m.description)}</p>` : ''}
+            ${m.description ? `<p class="small market-desc">${esc(m.description)}</p>` : ''}
             ${actions}
           </div>
         </article>`;
@@ -390,7 +378,7 @@
       el.querySelectorAll('.market-add-btn[data-id]').forEach(b => b.addEventListener('click', ()=>{
         const id = Number(b.getAttribute('data-id'));
         const item = MENU.find(x => x.id === id);
-        if(!item || isMeatCategory(item.category)) return;
+        if(!item) return;
         if(item.available === false) return;
         let qty = 1;
         if(typeof item.stock === 'number') qty = Math.min(qty, item.stock);
